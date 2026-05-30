@@ -3,13 +3,13 @@ use async_channel as channel;
 use collections::HashMap;
 use db::sqlez::domain::Domain;
 use db::sqlez_macros::sql;
-use db::{static_connection, write_and_log};
+use db::static_connection;
 use fs::Fs;
-use gpui::{App, AppContext as _, Context, Entity, EventEmitter, Global, Task};
+use gpui::{App, AppContext as _, BorrowAppContext, Context, Entity, EventEmitter, Global, Task};
 use oxidian_core::{NoteId, VaultConfig, WikiLink};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use util::ResultExt as _;
+
 
 // OXIDIAN BEGIN — vault database domain
 
@@ -62,9 +62,9 @@ static_connection!(VaultDatabase, []);
 impl VaultDatabase {
     db::query! {
         pub async fn upsert_note(
-            note_id: &str,
-            title: &str,
-            path: &str,
+            note_id: String,
+            title: String,
+            path: String,
             modified_at: i64
         ) -> Result<()> {
             INSERT OR REPLACE INTO vault_notes(note_id, title, path, modified_at)
@@ -73,23 +73,23 @@ impl VaultDatabase {
     }
 
     db::query! {
-        pub async fn delete_note(note_id: &str) -> Result<()> {
+        pub async fn delete_note(note_id: String) -> Result<()> {
             DELETE FROM vault_notes WHERE note_id = (?)
         }
     }
 
     db::query! {
-        pub async fn delete_links_from(note_id: &str) -> Result<()> {
+        pub async fn delete_links_from(note_id: String) -> Result<()> {
             DELETE FROM vault_links WHERE from_note = (?)
         }
     }
 
     db::query! {
         pub async fn insert_link(
-            from_note: &str,
-            to_target: &str,
-            alias: Option<&str>,
-            heading: Option<&str>,
+            from_note: String,
+            to_target: String,
+            alias: Option<String>,
+            heading: Option<String>,
             line: i64
         ) -> Result<()> {
             INSERT INTO vault_links(from_note, to_target, alias, heading, line)
@@ -116,13 +116,13 @@ impl VaultDatabase {
     }
 
     db::query! {
-        pub async fn upsert_tag(note_id: &str, tag: &str) -> Result<()> {
+        pub async fn upsert_tag(note_id: String, tag: String) -> Result<()> {
             INSERT OR IGNORE INTO vault_tags(note_id, tag) VALUES ((?), (?))
         }
     }
 
     db::query! {
-        pub async fn delete_tags_for_note(note_id: &str) -> Result<()> {
+        pub async fn delete_tags_for_note(note_id: String) -> Result<()> {
             DELETE FROM vault_tags WHERE note_id = (?)
         }
     }
@@ -152,7 +152,7 @@ pub enum VaultEvent {
 
 /// The vault index: watches the vault directory and keeps the SQLite index up to date.
 pub struct VaultIndex {
-    config: VaultConfig,
+    _config: VaultConfig,
     db: VaultDatabase,
     /// All currently known note IDs, mapped to their absolute paths.
     notes: HashMap<NoteId, PathBuf>,
@@ -177,7 +177,7 @@ impl VaultIndex {
         let watcher_task = cx.spawn({
             let vault_root = vault_root.clone();
             let fs = fs.clone();
-            async move |this, mut cx| {
+            async move |this, cx| {
                 // Initial scan — enumerate all .md files in the vault
                 if let Ok(entries) = Self::scan_vault_directory(&vault_root, &*fs).await {
                     for path in entries {
@@ -189,7 +189,7 @@ impl VaultIndex {
                     let note_id = Self::note_id_for_path(&vault_root, &path);
                     let Some(note_id) = note_id else { continue };
 
-                    if let Err(err) = this.update(&mut cx, |vault, cx| {
+                    if let Err(err) = this.update(cx, |vault, cx| {
                         vault.index_note(note_id.clone(), path, cx)
                     }) {
                         log::error!("VaultIndex: entity gone while indexing {note_id}: {err}");
@@ -200,7 +200,7 @@ impl VaultIndex {
         });
 
         Self {
-            config,
+            _config: config,
             db,
             notes: HashMap::default(),
             _watcher_task: watcher_task,
@@ -274,24 +274,24 @@ impl VaultIndex {
             let wiki_links = extract_wiki_links_from_text(&content);
             let tags = extract_tags_from_frontmatter(&content);
 
-            db.upsert_note(&note_id_str, &title, &path_str, modified_at)
+            db.upsert_note(note_id_str.clone(), title, path_str, modified_at)
                 .await?;
-            db.delete_links_from(&note_id_str).await?;
-            db.delete_tags_for_note(&note_id_str).await?;
+            db.delete_links_from(note_id_str.clone()).await?;
+            db.delete_tags_for_note(note_id_str.clone()).await?;
 
             for (line, link) in wiki_links {
                 db.insert_link(
-                    &note_id_str,
-                    link.target.as_ref(),
-                    link.alias.as_deref(),
-                    link.heading.as_deref(),
+                    note_id_str.clone(),
+                    link.target.to_string(),
+                    link.alias.map(|s| s.to_string()),
+                    link.heading.map(|s| s.to_string()),
                     line as i64,
                 )
                 .await?;
             }
 
             for tag in tags {
-                db.upsert_tag(&note_id_str, &tag).await?;
+                db.upsert_tag(note_id_str.clone(), tag).await?;
             }
 
             Ok(())
