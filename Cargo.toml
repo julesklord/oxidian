@@ -238,6 +238,11 @@ members = [
     "crates/ztracing",
     "crates/ztracing_macro",
 
+    # OXIDIAN BEGIN
+    "crates/oxidian_core",
+    "crates/oxidian_vault",
+    # OXIDIAN END
+
     #
     # Extensions
     #
@@ -496,6 +501,11 @@ zlog = { path = "crates/zlog" }
 zlog_settings = { path = "crates/zlog_settings" }
 ztracing = { path = "crates/ztracing" }
 ztracing_macro = { path = "crates/ztracing_macro" }
+
+# OXIDIAN BEGIN
+oxidian_core = { path = "crates/oxidian_core" }
+oxidian_vault = { path = "crates/oxidian_vault" }
+# OXIDIAN END
 
 #
 # External crates

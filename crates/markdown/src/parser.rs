@@ -29,6 +29,10 @@ struct ParseState {
     depth: usize,
 }
 
+// OXIDIAN BEGIN
+use oxidian_core::WikiLink;
+// OXIDIAN END
+
 #[derive(Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
 pub(crate) struct ParsedMarkdownData {
@@ -40,7 +44,13 @@ pub(crate) struct ParsedMarkdownData {
     pub metadata_blocks: BTreeMap<usize, ParsedMetadataBlock>,
     pub heading_slugs: HashMap<SharedString, usize>,
     pub footnote_definitions: HashMap<SharedString, usize>,
+    // OXIDIAN BEGIN
+    /// Wiki-links found in the document, as (byte_offset, WikiLink) pairs.
+    /// Populated by pre-scanning the raw text before pulldown-cmark.
+    pub wiki_links: Vec<(usize, WikiLink)>,
+    // OXIDIAN END
 }
+
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ParsedMetadataBlock {
@@ -640,6 +650,10 @@ pub(crate) fn parse_markdown_with_options(
     };
     let footnote_definitions = build_footnote_definitions(&state.events);
 
+    // OXIDIAN BEGIN — pre-scan for wiki-links
+    let wiki_links = extract_wiki_links(text);
+    // OXIDIAN END
+
     ParsedMarkdownData {
         events: state.events,
         language_names,
@@ -649,8 +663,67 @@ pub(crate) fn parse_markdown_with_options(
         metadata_blocks,
         heading_slugs,
         footnote_definitions,
+        // OXIDIAN BEGIN
+        wiki_links,
+        // OXIDIAN END
     }
 }
+
+// OXIDIAN BEGIN — wiki-link pre-scanner
+
+/// Scans raw Markdown text for `[[wiki-link]]` syntax before pulldown-cmark processing.
+/// Returns a list of (byte_offset_of_opening_bracket, WikiLink) pairs.
+/// Skips links inside code fences and inline code spans.
+fn extract_wiki_links(text: &str) -> Vec<(usize, WikiLink)> {
+    let mut results = Vec::new();
+    let mut in_code_fence = false;
+    let mut byte_offset: usize = 0;
+
+    for line in text.lines() {
+        let trimmed = line.trim_start();
+
+        // Track fenced code blocks so we don't parse wiki-links inside them
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code_fence = !in_code_fence;
+            byte_offset += line.len() + 1;
+            continue;
+        }
+
+        if !in_code_fence {
+            let mut search_start = 0;
+            while let Some(open_rel) = line[search_start..].find("[[") {
+                let open_abs = search_start + open_rel;
+
+                // Skip links inside inline code spans (heuristic: count backticks before this pos)
+                let backticks_before = line[..open_abs].chars().filter(|&c| c == '`').count();
+                if backticks_before % 2 != 0 {
+                    search_start = open_abs + 2;
+                    continue;
+                }
+
+                let after_open = open_abs + 2;
+                if let Some(close_rel) = line[after_open..].find("]]") {
+                    let close_abs = after_open + close_rel;
+                    let inner = &line[after_open..close_abs];
+
+                    if !inner.is_empty() && !inner.contains('[') {
+                        let link_byte_offset = byte_offset + open_abs;
+                        results.push((link_byte_offset, WikiLink::parse(inner)));
+                    }
+                    search_start = close_abs + 2;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        byte_offset += line.len() + 1;
+    }
+
+    results
+}
+
+// OXIDIAN END
 
 fn build_footnote_definitions(
     events: &[(Range<usize>, MarkdownEvent)],
