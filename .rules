@@ -1,3 +1,15 @@
+# 💎 Oxidian Project Context
+
+Oxidian is a project to transform and personalize the Zed editor into a full-featured, native Markdown knowledge base (a "Native Obsidian").
+
+## Strategic Goals
+1. **Performance over Bloat:** Every feature must be fast and native. Avoid any Electron-like overhead.
+2. **Wiki-link Support:** Implement and refine support for `[[wiki-links]]` using Marksman LSP or custom extensions.
+3. **Zettelkasten Workflow:** Build tools for Backlinks, Daily Notes, and Graph View using Zed's GPUI and WASM Extension API.
+4. **Agent Integration:** Ensure the environment is optimized for AI agents to assist with note organization and knowledge retrieval via MCP.
+
+---
+
 # Rust coding guidelines
 
 * Prioritize code correctness and clarity. Speed and efficiency are secondary priorities unless otherwise specified.

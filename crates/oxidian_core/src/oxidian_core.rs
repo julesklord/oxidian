@@ -111,6 +111,57 @@ pub enum NoteRef {
     MarkdownLink { url: Arc<str>, title: Option<Arc<str>> },
 }
 
+/// Helper to check if a character column is inside a `[[wiki-link]]` on a given line.
+/// If yes, returns the inner content of the wiki-link.
+pub fn find_wiki_link_at_column(line: &str, col: usize) -> Option<String> {
+    let chars: Vec<char> = line.chars().collect();
+    
+    // Look backwards from col for "[["
+    let mut open_idx = None;
+    if col >= 2 {
+        for i in (0..=col.min(chars.len() - 2)).rev() {
+            if chars[i] == '[' && chars[i+1] == '[' {
+                open_idx = Some(i + 2);
+                break;
+            }
+            if chars[i] == ']' && chars[i+1] == ']' && i + 2 <= col {
+                return None;
+            }
+        }
+    }
+
+    let Some(start) = open_idx else { return None; };
+
+    // Look forwards from start for "]]"
+    let mut close_idx = None;
+    for i in start..chars.len() {
+        if i + 2 <= chars.len() && chars[i] == ']' && chars[i+1] == ']' {
+            close_idx = Some(i);
+            break;
+        }
+        if i + 2 <= chars.len() && chars[i] == '[' && chars[i+1] == '[' {
+            return None;
+        }
+    }
+
+    let Some(end) = close_idx else { return None; };
+
+    if col >= start - 2 && col <= end + 2 {
+        let content: String = chars[start..end].iter().collect();
+        Some(content)
+    } else {
+        None
+    }
+}
+
+/// A thread-safe global resolver for wiki-links.
+/// Registered by `oxidian_vault` and called by `editor` to navigate to notes.
+pub struct WikiLinkResolver(
+    pub Arc<dyn Fn(&str, &mut gpui::Window, &mut gpui::App) -> Option<PathBuf> + Send + Sync>,
+);
+
+impl gpui::Global for WikiLinkResolver {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,5 +208,15 @@ mod tests {
     fn test_note_id_no_extension() {
         let id = NoteId::from_relative_path("projects/alpha");
         assert_eq!(id.as_str(), "projects/alpha");
+    }
+
+    #[test]
+    fn test_find_wiki_link_at_column() {
+        let line = "See [[My Note|Display]] here";
+        assert_eq!(find_wiki_link_at_column(line, 8), Some("My Note|Display".to_owned())); // inside My Note
+        assert_eq!(find_wiki_link_at_column(line, 4), Some("My Note|Display".to_owned())); // at [[
+        assert_eq!(find_wiki_link_at_column(line, 22), Some("My Note|Display".to_owned())); // at ]]
+        assert_eq!(find_wiki_link_at_column(line, 3), None); // before [[
+        assert_eq!(find_wiki_link_at_column(line, 24), None); // after ]]
     }
 }

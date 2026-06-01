@@ -1,13 +1,13 @@
 ---
 title: Text Threads (Removed)
-description: Text threads have been removed from Zed. Use the Agent Panel for all AI conversations.
+description: Zed removed text threads. Use the Agent Panel for AI conversations.
 redirect_to: ./agent-panel.md
 ---
 
 # Text Threads
 
-Text threads have been removed from Zed.
+Zed removed text threads.
 
-All AI conversations now happen through the [Agent Panel](./agent-panel.md), which supports agentic workflows including tool calls, file editing, terminal access, and [external agents](./external-agents.md).
+The [Agent Panel](./agent-panel.md) manages AI conversations. It supports tool calls, file edits, terminal access, and [external agents](./external-agents.md).
 
-See the [Agent Panel documentation](./agent-panel.md) to get started.
+The [Agent Panel documentation](./agent-panel.md) covers setup.

@@ -1,12 +1,12 @@
 [package]
 description = "The fast, collaborative code editor."
 edition.workspace = true
-name = "zed"
+name = "oxidian"
 version = "1.6.0"
 publish.workspace = true
 license = "GPL-3.0-or-later"
 authors = ["Zed Team <hi@zed.dev>"]
-default-run = "zed"
+default-run = "oxidian"
 
 [lints]
 workspace = true
@@ -54,7 +54,7 @@ visual-tests = [
 ]
 
 [[bin]]
-name = "zed"
+name = "oxidian"
 path = "src/main.rs"
 
 [[bin]]
@@ -141,6 +141,9 @@ journal.workspace = true
 json_schema_store.workspace = true
 # OXIDIAN BEGIN
 oxidian_vault.workspace = true
+oxidian_backlinks.workspace = true
+oxidian_daily.workspace = true
+oxidian_frontmatter.workspace = true
 # OXIDIAN END
 keymap_editor.workspace = true
 language.workspace = true

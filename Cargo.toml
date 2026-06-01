@@ -241,6 +241,9 @@ members = [
     # OXIDIAN BEGIN
     "crates/oxidian_core",
     "crates/oxidian_vault",
+    "crates/oxidian_backlinks",
+    "crates/oxidian_daily",
+    "crates/oxidian_frontmatter",
     # OXIDIAN END
 
     #
@@ -505,6 +508,9 @@ ztracing_macro = { path = "crates/ztracing_macro" }
 # OXIDIAN BEGIN
 oxidian_core = { path = "crates/oxidian_core" }
 oxidian_vault = { path = "crates/oxidian_vault" }
+oxidian_backlinks = { path = "crates/oxidian_backlinks" }
+oxidian_daily = { path = "crates/oxidian_daily" }
+oxidian_frontmatter = { path = "crates/oxidian_frontmatter" }
 # OXIDIAN END
 
 #

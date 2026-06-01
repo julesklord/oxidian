@@ -1,6 +1,6 @@
 ---
 title: All Actions
-description: "Complete reference of all available actions and commands in Zed."
+description: Reference Zed actions and commands.
 ---
 
 # All Actions

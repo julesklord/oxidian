@@ -1,4 +1,5 @@
 use super::*;
+use workspace::{OpenOptions, OpenVisible};
 
 impl Editor {
     pub fn move_left(&mut self, _: &MoveLeft, window: &mut Window, cx: &mut Context<Self>) {
@@ -968,6 +969,83 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Task<Result<Navigated>> {
+        // OXIDIAN BEGIN — intercept wiki-link navigation
+        let head = self
+            .selections
+            .newest::<MultiBufferOffset>(&self.display_snapshot(cx))
+            .head();
+        let buffer = self.buffer.read(cx);
+        if let Some((buffer_handle, head_anchor)) = buffer.text_anchor_for_position(head, cx) {
+            let buffer_ref = buffer_handle.read(cx);
+            let is_markdown = buffer_ref
+                .file()
+                .and_then(|file| file.path().extension())
+                .is_some_and(|ext| ext == "md");
+
+            if is_markdown {
+                let buffer_snapshot = buffer_ref.snapshot();
+                let buffer_point = head_anchor.to_point(&buffer_snapshot);
+                let row = buffer_point.row;
+                let line_len = buffer_snapshot.line_len(row);
+                let line_text: String = buffer_snapshot.text_for_range(Point::new(row, 0)..Point::new(row, line_len)).collect();
+                let col = buffer_point.column as usize;
+
+                if let Some(target) = oxidian_core::find_wiki_link_at_column(&line_text, col) {
+                    let parsed_link = oxidian_core::WikiLink::parse(&target);
+                    let target_name = parsed_link.target.to_string();
+
+                    let resolver_fn = cx.try_global::<oxidian_core::WikiLinkResolver>().map(|r| r.0.clone());
+                    if let Some(resolve_fn) = resolver_fn {
+                        if let Some(resolved_path) = resolve_fn(&target_name, window, cx) {
+                            if let Some(workspace) = self.workspace() {
+                                let open_task = workspace.update(cx, |workspace, cx| {
+                                    workspace.open_paths(
+                                        vec![resolved_path],
+                                        OpenOptions {
+                                            visible: Some(OpenVisible::All),
+                                            ..Default::default()
+                                        },
+                                        None,
+                                        window,
+                                        cx,
+                                    )
+                                });
+                                return cx.spawn_in(window, async move |_, cx| {
+                                    let mut results = open_task.await;
+                                    if let Some(Some(Ok(item_handle))) = results.pop() {
+                                        if let Some(heading) = parsed_link.heading {
+                                            if let Some(editor) = item_handle.downcast::<Editor>() {
+                                                editor.update_in(cx, |editor, window, cx| {
+                                                    let heading_str = heading.to_string();
+                                                    let buffer_snapshot = editor.buffer().read(cx).snapshot(cx);
+                                                    let max_row = buffer_snapshot.max_point().row;
+                                                    let mut target_point = None;
+                                                    for row_idx in 0..=max_row {
+                                                        let row_point = Point::new(row_idx, 0);
+                                                        let line_len = buffer_snapshot.line_len(multi_buffer::MultiBufferRow(row_idx));
+                                                        let line_text: String = buffer_snapshot.text_for_range(row_point..Point::new(row_idx, line_len)).collect();
+                                                        let trimmed = line_text.trim();
+                                                        if trimmed.starts_with('#') && trimmed.contains(&heading_str) {
+                                                            target_point = Some(row_point);
+                                                            break;
+                                                        }
+                                                    }
+                                                    if let Some(p) = target_point {
+                                                        editor.go_to_singleton_buffer_point(p, window, cx);
+                                                    }
+                                                })?;
+                                            }
+                                        }
+                                    }
+                                    Ok(Navigated::Yes)
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // OXIDIAN END
         let definition =
             self.go_to_definition_of_kind(GotoDefinitionKind::Symbol, false, window, cx);
         let fallback_strategy = EditorSettings::get_global(cx).go_to_definition_fallback;

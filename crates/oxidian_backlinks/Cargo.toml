@@ -1,0 +1,24 @@
+[package]
+name = "oxidian_backlinks"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license = "GPL-3.0-or-later"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/oxidian_backlinks.rs"
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+collections.workspace = true
+editor = { path = "../editor" }
+gpui.workspace = true
+oxidian_core = { path = "../oxidian_core" }
+oxidian_vault = { path = "../oxidian_vault" }
+text.workspace = true
+ui.workspace = true
+workspace = { path = "../workspace" }

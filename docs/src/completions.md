@@ -5,33 +5,30 @@ description: Zed's code completions from language servers and edit predictions. 
 
 # Completions
 
-Zed supports two sources for completions:
+Zed provides completions through two sources:
 
-1. "Code Completions" provided by Language Servers (LSPs) automatically installed by Zed or via [Zed Language Extensions](languages.md).
-2. "Edit Predictions" provided by Zed's own Zeta model or by external providers like [GitHub Copilot](#github-copilot).
+1. Language Servers (LSPs) installed automatically or through [Zed Language Extensions](languages.md) generate code completions.
+2. The Zeta model or external providers like [GitHub Copilot](#github-copilot) generate edit predictions.
 
 ## Language Server Code Completions {#code-completions}
 
-When there is an appropriate language server available, Zed will provide completions of variable names, functions, and other symbols in the current file. You can disable these by adding the following to your Zed `settings.json` file:
+Active language servers suggest variables, functions, and symbols. Disable these suggestions in `settings.json`:
 
 ```json [settings]
 "show_completions_on_input": false
 ```
 
-You can manually trigger completions with `ctrl-space` or by triggering the `editor::ShowCompletions` action from the command palette.
+Trigger completions with `ctrl-space` or the `editor::ShowCompletions` command.
 
-> Note: Using `ctrl-space` in Zed requires disabling the macOS global shortcut.
-> Open **System Settings** > **Keyboard** > **Keyboard Shortcut**s >
-> **Input Sources** and uncheck **Select the previous input source**.
+MacOS users must disable the "Select the previous input source" shortcut in **System Settings** > **Keyboard** > **Keyboard Shortcuts** > **Input Sources** to use `ctrl-space`.
 
-For more information, see:
+Reference these guides for more information:
 
 - [Configuring Supported Languages](./configuring-languages.md)
 - [List of Zed Supported Languages](./languages.md)
 
 ## Edit Predictions {#edit-predictions}
 
-Zed has built-in support for predicting multiple edits at a time [via Zeta](https://huggingface.co/zed-industries/zeta), Zed's open-source and open-data model.
-Edit predictions appear as you type, and most of the time, you can accept them by pressing `tab`.
+The [Zeta](https://huggingface.co/zed-industries/zeta) model predicts multiple edits at once. Press `tab` to accept these predictions.
 
-See the [edit predictions documentation](./ai/edit-prediction.md) for more information on how to setup and configure Zed's edit predictions.
+The [edit predictions documentation](./ai/edit-prediction.md) contains setup and configuration instructions.

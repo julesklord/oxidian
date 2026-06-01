@@ -1,90 +1,70 @@
 ---
-title: Agent Skills - Zed
-description: Extend Zed's AI agent with reusable, on-demand skill files for specialized tasks.
+title: Agent Skills
+description: Add specialized knowledge to Zed using skill files.
 ---
 
 # Skills {#skills}
 
-Skills are reusable instruction packages that give the agent specialized knowledge for specific tasks: test-driven development workflows, document processing, database integrations, or your team's internal coding standards.
+Skills provide the agent with instruction packages for specific tasks. You use these for test-driven development, document processing, or team coding standards.
 
-A skill is a folder containing a `SKILL.md` file with metadata and instructions. The agent sees a catalog of all installed skills and can load one on demand, or you can invoke any skill directly from the message editor with a slash command.
+Each skill folder contains a `SKILL.md` file with metadata and instructions. The agent catalogs installed skills and loads them when needed. You invoke skills using slash commands in the message editor.
 
 ## Adding Skills {#adding-skills}
 
 ### Create your own {#create-your-own}
 
-Zed includes a built-in `create-skill` skill — invoke it with `/create-skill` and the agent walks you through the process.
+Zed provides a `create-skill` tool. Type `/create-skill` to start the setup process.
 
-You can also open the Skill Creator from the Agent Panel using {#kb agent::OpenRulesLibrary}, or by clicking `...` and selecting **Skills**. Outside the panel, use the {#action agent::OpenSkillCreator} action from the command palette. It opens a window where you fill in the skill's name, description, scope (global or project-local), body, and optionally toggle `disable-model-invocation`.
+Open the Skill Creator from the Agent Panel via {#kb agent::OpenRulesLibrary} or the `...` menu. Alternatively, use the {#action agent::OpenSkillCreator} action in the command palette. Enter the name, description, and instructions in the window.
 
-Lastly, it's also possible to add a skill through importing it from an existing GitHub Markdown file. Open the command palette and look for the {#action agent::CreateSkillFromUrl} action. If your clipboard contains a supported GitHub `.md` URL, Zed pre-fills and fetches it automatically.
-
-See [Skill format](#skill-format) below for the full format reference.
+Import skills from GitHub Markdown files. Select {#action agent::CreateSkillFromUrl} in the command palette. Zed fetches the content if your clipboard contains a GitHub URL.
 
 ### From the skills.sh Registry {#from-the-registry}
 
-[skills.sh](https://skills.sh) is a community registry of open-source skills. You'll find skills for popular frameworks, tools, workflows, and more:
+[skills.sh](https://skills.sh) hosts community skills for frameworks and tools.
 
-- [`find-skills`](https://skills.sh/vercel-labs/skills/find-skills): discover and install skills from the open ecosystem
-- [`frontend-design`](https://skills.sh/anthropics/skills/frontend-design): production-grade frontend interfaces with design polish
-- [`pdf`](https://skills.sh/anthropics/skills/pdf): PDF text extraction, merging, splitting, form filling, and OCR
-
-To install a skill, copy the skill's folder into `~/.agents/skills/` for global use, or into your project's `.agents/skills/` folder for project-local use.
+Copy skill folders to `~/.agents/skills/` for global access or `.agents/skills/` within your project for local use.
 
 ## Managing Skills {#managing-skills}
 
-Open the Settings Editor (`Cmd+,` on macOS, `Ctrl+,` on Linux/Windows) and navigate to **AI > Skills**, or go directly to [agent.skills](zed://settings/agent.skills).
+Navigate to **AI > Skills** in the Settings Editor or visit [agent.skills](zed://settings/agent.skills).
 
-The **User** tab shows your global skills. The **Project** tab shows skills for the current project.
+The **User** tab lists global skills. The **Project** tab lists local project skills.
 
-For each skill you can:
+For each skill:
 
-- **Copy Share Link** — copies a `zed://skill` link that embeds the skill, ready to send to someone else (see [Sharing Skills](#sharing-skills))
-- **Open** — opens the skill's `SKILL.md` file in the editor
-- **Delete** — removes the skill folder from disk
+- **Copy Share Link**: copies a `zed://skill` link with embedded data.
+- **Open**: opens `SKILL.md` in the editor.
+- **Delete**: removes the folder.
 
-If no skills are installed, the page shows a **Create a Skill** button that opens the Skill Creator.
+The **Create a Skill** button opens the creator if you have no skills installed.
 
 ## Sharing Skills {#sharing-skills}
 
-You can hand a skill to a teammate without hosting it anywhere. In the Skills settings page, click the **link** icon on a skill row to copy a `zed://skill?data=…` link to your clipboard. The link is self-contained: it embeds the full `SKILL.md` contents (base64url-encoded), so the recipient doesn't need access to your project or any registry.
+Share skills directly with teammates. Click the **link** icon in the Skills settings to copy a `zed://skill?data=…` URL. This link embeds the `SKILL.md` content.
 
-When someone opens that link (for example by pasting it into their browser or clicking it in a chat), Zed launches the Skill Creator pre-filled with the shared skill. The recipient can review the name, description, and full body, choose a scope (global or project-local), and click **Save** to install it. Nothing is written to disk until they explicitly save, so a shared link can never silently install instructions into someone's agent.
-
-## Managing Skills {#managing-skills}
-
-Open the Settings Editor (`Cmd+,` on macOS, `Ctrl+,` on Linux/Windows) and navigate to **AI > Skills**, or go directly to [agent.skills](zed://settings/agent.skills).
-
-The **User** tab shows your global skills. The **Project** tab shows skills for the current project.
-
-For each skill you can:
-
-- **Open** — opens the skill's `SKILL.md` file in the editor
-- **Delete** — removes the skill folder from disk
-
-If no skills are installed, the page shows a **Create a Skill** button that opens the Skill Creator.
+Opening the link launches the Skill Creator with pre-filled fields. The recipient reviews the content and clicks **Save** to install. Zed only writes to disk after the user saves.
 
 ## Using Skills {#using-skills}
 
-By default, the agent picks up skills autonomously. It sees a catalog of every installed skill (name and description) in its system prompt, and calls the `skill` tool when a task matches a skill's description.
+The agent identifies relevant skills by scanning the catalog of names and descriptions. It invokes the `skill` tool when a task matches a description.
 
-When the agent invokes a skill, Zed prompts you to allow or deny it, using the same permission flow as other tools. You can set per-skill defaults in [Tool Permissions](./tool-permissions.md) so you're not prompted for skills you always trust.
+Zed requests permission when the agent invokes a skill. You configure automatic approvals in [Tool Permissions](./tool-permissions.md).
 
 ### Manual Invocation {#manual-invocation}
 
-You can also load a skill manually:
+Load skills manually:
 
-- **Slash command**: type `/` in the message editor and select a skill by name
-- **@-mention**: type `@skill` in the message editor and select a skill from the completion menu
+- **Slash command**: Type `/` and select a skill.
+- **@-mention**: Type `@skill` and choose from the menu.
 
-Both inject the skill's instructions as context. The loaded skill appears as a crease button in the thread, which you can click to open the skill file.
+These actions add the skill instructions to the context. Click the button in the thread to open the file.
 
 ### Preventing Autonomous Invocation {#disable-model-invocation}
 
-Add `disable-model-invocation: true` to a skill's frontmatter to stop the agent from picking it up autonomously.
-The skill still appears as a slash command, so you stay in control of when it runs.
+Add `disable-model-invocation: true` to the frontmatter to prevent automatic use. The skill remains available via slash commands.
 
-This is useful for workflows you don't want the agent triggering automatically, like deploy or release procedures.
+Use this for deployment or release procedures.
 
 ```yaml
 ---
@@ -98,21 +78,21 @@ disable-model-invocation: true
 
 ### Folder Structure {#folder-structure}
 
-A skill is a named folder containing a `SKILL.md` file:
+A skill folder contains these items:
 
 ```
 my-skill/
-├── SKILL.md          # Required: metadata and instructions
-├── scripts/          # Optional: scripts the agent can run
-├── references/       # Optional: additional documentation
-└── assets/           # Optional: templates and static files
+├── SKILL.md          # Metadata and instructions
+├── scripts/          # Scripts for the agent
+├── references/       # Documentation
+└── assets/           # Templates and files
 ```
 
-The folder name must match the `name` field in `SKILL.md`.
+The folder name and the `name` field in `SKILL.md` must match.
 
 ### SKILL.md format {#skill-md-format}
 
-`SKILL.md` starts with YAML frontmatter, followed by Markdown instructions.
+Put YAML frontmatter at the top of `SKILL.md`, followed by instructions.
 
 **Minimal example:**
 
@@ -129,81 +109,181 @@ Step-by-step instructions for the agent...
 
 #### Frontmatter Fields {#frontmatter-fields}
 
-| Field                      | Required | Description                                                                                  |
-| -------------------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `name`                     | Yes      | Lowercase letters, numbers, and hyphens only. Max 64 characters. Must match the folder name. |
-| `description`              | Yes      | What the skill does and when to use it. Max 1024 characters.                                 |
-| `disable-model-invocation` | No       | Set to `true` to hide from the agent's catalog (slash command only).                         |
+| Field                      | Required | Description                                                                                  |---
+title: Agent Skills - Zed
+description: Extend the Zed agent with skill files for specialized tasks.
+---
 
-> **Tip:** Write descriptions that help the agent recognize when a skill is relevant. Include specific task types and trigger phrases: "Use when handling PDFs, extracting text, or filling forms" is better than "Helps with PDFs."
+# Skills {#skills}
 
-We plan to include other fields promoted by [the Agent Skills specification](https://agentskills.io/specification) in the near future.
+Extend the Zed agent with skills. These folders contain a `SKILL.md` file with instructions for tasks like test-driven development, document processing, or database integration. You can invoke skills from the message editor using a slash command. The agent catalog lists all installed skills and loads them on demand.
+
+## Adding Skills {#adding-skills}
+
+### Create your own {#create-your-own}
+
+Invoke the built-in `create-skill` skill with `/create-skill`. Zed guides you through the process.
+
+Open the Skill Creator from the Agent Panel using {#kb agent::OpenRulesLibrary}. You can also click `...` and select **Skills**. The {#action agent::OpenSkillCreator} action in the command palette opens a window to define the name, description, and scope.
+
+Create a skill from a GitHub Markdown URL using the {#action agent::CreateSkillFromUrl} action. Zed fetches the content if your clipboard contains a supported URL.
+
+### From the skills.sh Registry {#from-the-registry}
+
+[skills.sh](https://skills.sh) hosts community skills for frameworks and tools:
+
+- [`find-skills`](https://skills.sh/vercel-labs/skills/find-skills): installs skills from the ecosystem
+- [`frontend-design`](https://skills.sh/anthropics/skills/frontend-design): builds production-grade interfaces
+- [`pdf`](https://skills.sh/anthropics/skills/pdf): extracts text and handles PDF forms
+
+Install a skill by copying its folder into `~/.agents/skills/` for global use. Use the project `.agents/skills/` folder for local tasks.
+
+## Managing Skills {#managing-skills}
+
+Navigate to **AI > Skills** in the Settings Editor (`Cmd+,` or `Ctrl+,`), or go to [agent.skills](zed://settings/agent.skills).
+
+The **User** tab manages global skills. The **Project** tab manages local ones.
+
+Use these options for each skill:
+
+- **Copy Share Link**: creates a `zed://skill` link (see [Sharing Skills](#sharing-skills))
+- **Open**: opens the `SKILL.md` file
+- **Delete**: removes the skill folder
+
+The **Create a Skill** button appears if you have no skills installed.
+
+## Sharing Skills {#sharing-skills}
+
+Share skills without external hosting. Click the **link** icon in Skills settings to copy a `zed://skill?data=…` link. This self-contained link embeds the `SKILL.md` content.
+
+When you open this link, Zed pre-fills the Skill Creator. You can review the instructions and click **Save** to install it. Zed only writes to disk after you confirm the save.
+
+## Using Skills {#using-skills}
+
+The agent selects skills autonomously. It identifies relevant skills from the catalog and calls the `skill` tool. Zed prompts you to allow or deny these calls. You can configure defaults in [Tool Permissions](./tool-permissions.md).
+
+### Manual Invocation {#manual-invocation}
+
+Load skills manually:
+
+- **Slash command**: type `/` and select a skill
+- **@-mention**: type `@skill` and choose from the menu
+
+Both methods inject instructions into the thread. Click the crease button in the thread to open the skill file.
+
+### Preventing Autonomous Invocation {#disable-model-invocation}
+
+Set `disable-model-invocation: true` in the frontmatter to stop the agent from selecting a skill. You can still trigger these skills manually with a slash command. Use this for sensitive workflows like releases.
+
+```yaml
+---
+name: deploy
+description: Deploy the current branch to production.
+disable-model-invocation: true
+---
+```
+
+## Skill Format {#skill-format}
+
+### Folder Structure {#folder-structure}
+
+Each skill requires a folder containing a `SKILL.md` file. The folder name must match the `name` field in the frontmatter.
+
+```
+my-skill/
+├── SKILL.md          # metadata and instructions
+├── scripts/          # optional scripts
+├── references/       # documentation
+└── assets/           # templates
+```
+
+### SKILL.md format {#skill-md-format}
+
+Start `SKILL.md` with YAML frontmatter.
+
+```markdown
+---
+name: my-skill
+description: Describe the task and when to use the skill.
+---
+
+## Instructions
+
+Provide step-by-step instructions.
+```
+
+#### Frontmatter Fields {#frontmatter-fields}
+
+| Field | Required | Description |
+| :--- | :--- | :--- |
+| `name` | Yes | Use lowercase letters, numbers, and hyphens. Max 64 characters. |
+| `description` | Yes | Define what the skill does. Max 1024 characters. |
+| `disable-model-invocation` | No | Set to `true` to restrict usage to slash commands. |
+
+Write descriptions that help the agent identify the skill. Mention specific tasks and keywords.
 
 #### Name Validation {#name-validation}
 
-The `name` field must:
+The `name` field must follow these rules:
 
-- Contain only lowercase letters (`a-z`), numbers, and hyphens
-- Not start or end with a hyphen
-- Not contain consecutive hyphens (`--`)
-- Be 1 to 64 characters
+- Use lowercase letters (`a-z`), numbers, and hyphens
+- Do not start or end with a hyphen
+- Do not use consecutive hyphens
+- Keep the length between 1 and 64 characters
 
-Skills with invalid names fail to load and surface an error in the UI.
+Invalid names prevent skills from loading.
 
 ### Bundled Resources {#bundled-resources}
 
-Keep the body of `SKILL.md` under 500 lines. Move detailed material to reference files and link to them from the body:
+Keep `SKILL.md` under 500 lines. Link to files in the `references/` folder for detailed material.
 
 ```markdown
-See [reference guide](references/REFERENCE.md) for complete API details.
+See the [reference guide](references/REFERENCE.md) for API details.
 
-Run the extraction script:
+Run this script:
 scripts/extract.py
 ```
 
-The agent loads these files on demand using the `read_file` and `list_directory` tools. Global skills under `~/.agents/skills/` are accessible to the agent even though they're outside your project.
+The agent uses `read_file` and `list_directory` to load these files. It can access global skills in `~/.agents/skills/` even if they sit outside the project.
 
 ### Writing Effective Instructions {#writing-instructions}
 
-Skills use [progressive disclosure](https://agentskills.io/specification#progressive-disclosure): the agent sees only the name and description until it activates a skill, then loads the full body. Structure your skill to take advantage of this:
+The agent sees the name and description first. It only loads the full body after activation. 
 
-- Put the most important instructions near the top of the body
-- Keep `SKILL.md` under 500 lines; move detailed references to `references/`
-- Scripts that the agent needs to run go in `scripts/`
-
-See the [Agent Skills specification](https://agentskills.io/specification) for the full format reference.
+- Place critical instructions at the top
+- Keep `SKILL.md` under 500 lines
+- Move detailed data to `references/`
+- Put executable code in `scripts/`
 
 ## Where Skills Live {#where-skills-live}
 
-Zed loads skills from two locations:
+Zed loads skills from these locations:
 
-| Scope         | Path                         | When it applies          |
-| ------------- | ---------------------------- | ------------------------ |
-| Global        | `~/.agents/skills/`          | Every project            |
-| Project-local | `<worktree>/.agents/skills/` | Only the current project |
+| Scope | Path | Application |
+| :--- | :--- | :--- |
+| Global | `~/.agents/skills/` | Every project |
+| Project-local | `<worktree>/.agents/skills/` | Current project only |
 
-Each skill is a direct child of the skills root. Nesting skills inside subfolders is not supported.
+Nesting skills in subfolders is not supported.
 
 ### Project-local Skills and Trust {#project-local-trust}
 
-Project-local skills only load from [trusted worktrees](../worktree-trust.md). Skills from a freshly cloned or untrusted project are excluded from the catalog and slash commands until you grant trust.
-
-This prevents a malicious project from injecting instructions into your agent's system prompt before you've reviewed what the project ships.
+Zed only loads project-local skills from [trusted worktrees](../worktree-trust.md). Review the project before granting trust to prevent unauthorized instructions.
 
 ### Override Behavior {#override-behavior}
 
-If a global and a project-local skill share the same name, the project-local skill takes precedence. This lets a project customize or replace a global skill for its own context.
+Project-local skills take precedence over global skills with the same name. Use this to customize global workflows for specific projects.
 
 ### Editing Skill Files {#editing-skill-files}
 
-The agent cannot edit `SKILL.md` files or their bundled resources without your explicit authorization, even in a trusted project. This prevents a compromised conversation from modifying the skills that govern future conversations.
+The agent cannot modify `SKILL.md` or bundled resources without authorization. This protects the instructions governing the agent.
 
 ## Limitations {#limitations}
 
-- **Flat layout only.** Skills must be direct children of the skills root. Nested folders like `~/.agents/skills/group/my-skill/` are not discovered.
-- **50KB catalog budget.** The total size of all skill names and descriptions is capped at 50KB. Skills that don't fit are dropped from the catalog with a warning in the UI. Keep descriptions concise.
-- **No remote registry.** Zed does not fetch skills from URLs or support custom search paths. Skills come from `~/.agents/skills/` and `<worktree>/.agents/skills/` only. Use a symlink if you need to point at another location.
-- **Live reload.** Adding, removing, or editing a `SKILL.md` takes effect immediately without restarting your session. Changes to a skill's `name` or `description` invalidate the model's prompt cache for the current session.
+- **Flat layout**: Skills must reside directly in the skills root.
+- **50KB catalog budget**: Zed caps the total size of names and descriptions at 50KB.
+- **No remote registry**: Install skills into the local paths manually.
+- **Live reload**: Changes to `SKILL.md` take effect.
 
 ## See also
 

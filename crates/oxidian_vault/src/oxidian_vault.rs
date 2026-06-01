@@ -6,7 +6,7 @@ use db::sqlez_macros::sql;
 use db::static_connection;
 use fs::Fs;
 use gpui::{App, AppContext as _, BorrowAppContext, Context, Entity, EventEmitter, Global, Task};
-use oxidian_core::{NoteId, VaultConfig, WikiLink};
+use oxidian_core::{NoteId, VaultConfig, WikiLink, WikiLinkResolver};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -132,6 +132,12 @@ impl VaultDatabase {
             SELECT note_id FROM vault_tags WHERE tag = (?)
         }
     }
+
+    db::query! {
+        pub fn all_tags_with_counts() -> Result<Vec<(String, i64)>> {
+            SELECT tag, COUNT(note_id) FROM vault_tags GROUP BY tag ORDER BY tag ASC
+        }
+    }
 }
 
 // OXIDIAN END
@@ -152,7 +158,7 @@ pub enum VaultEvent {
 
 /// The vault index: watches the vault directory and keeps the SQLite index up to date.
 pub struct VaultIndex {
-    _config: VaultConfig,
+    pub config: VaultConfig,
     db: VaultDatabase,
     /// All currently known note IDs, mapped to their absolute paths.
     notes: HashMap<NoteId, PathBuf>,
@@ -175,7 +181,6 @@ impl VaultIndex {
         let (scan_sender, scan_receiver) = channel::unbounded::<PathBuf>();
 
         let watcher_task = cx.spawn({
-            let vault_root = vault_root.clone();
             let fs = fs.clone();
             async move |this, cx| {
                 // Initial scan — enumerate all .md files in the vault
@@ -200,7 +205,7 @@ impl VaultIndex {
         });
 
         Self {
-            _config: config,
+            config,
             db,
             notes: HashMap::default(),
             _watcher_task: watcher_task,
@@ -249,7 +254,7 @@ impl VaultIndex {
         let note_id_str = note_id.as_str().to_owned();
         let path_str = path.to_string_lossy().into_owned();
 
-        self.notes.insert(note_id.clone(), path.clone());
+        self.notes.insert(note_id, path.clone());
 
         cx.background_spawn(async move {
             let metadata = std::fs::metadata(&path)
@@ -389,8 +394,8 @@ pub fn extract_wiki_links_from_text(text: &str) -> Vec<(usize, WikiLink)> {
 fn extract_title(content: &str) -> Option<String> {
     for line in content.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("# ") {
-            return Some(trimmed[2..].trim().to_owned());
+        if let Some(stripped) = trimmed.strip_prefix("# ") {
+            return Some(stripped.trim().to_owned());
         }
         // Skip frontmatter delimiters and empty lines
         if !trimmed.is_empty() && trimmed != "---" && trimmed != "+++" {
@@ -474,7 +479,7 @@ pub fn is_vault_root(path: &Path) -> bool {
 pub fn load_vault_config(root: PathBuf) -> VaultConfig {
     let obsidian_config = root.join(".obsidian").join("app.json");
 
-    let mut config = VaultConfig::default_for_root(root.clone());
+    let mut config = VaultConfig::default_for_root(root);
 
     if obsidian_config.exists() {
         if let Ok(content) = std::fs::read_to_string(&obsidian_config) {
@@ -520,6 +525,25 @@ impl Global for ActiveVault {}
 /// Call this from `zed/src/main.rs` during initialization.
 pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
     cx.set_global(ActiveVault(None));
+
+    cx.set_global(WikiLinkResolver(Arc::new(move |target, _window, cx| {
+        let active_vault = cx.try_global::<ActiveVault>().and_then(|av| av.0.clone())?;
+        let note_id = active_vault.read(cx).resolve_wiki_link(target);
+        if let Some(note_id) = note_id {
+            active_vault.read(cx).resolve_note(&note_id).cloned()
+        } else {
+            // Note does not exist yet! Create it under the vault root
+            let vault_root = active_vault.read(cx).config.root.clone();
+            let note_path = vault_root.join(format!("{}.md", target));
+            if !note_path.exists() {
+                if let Some(parent) = note_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let _ = std::fs::write(&note_path, format!("# {}\n\n", target));
+            }
+            Some(note_path)
+        }
+    })));
 
     cx.observe_new(move |workspace: &mut workspace::Workspace, _window, cx| {
         let Some(worktree) = workspace.visible_worktrees(cx).next() else {

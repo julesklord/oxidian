@@ -1,35 +1,28 @@
----
-title: Model Context Protocol (MCP) in Zed
-description: Install and configure MCP servers in Zed to extend your AI agent with external tools, data sources, and integrations.
----
-
 # Model Context Protocol
 
-Zed uses the [Model Context Protocol](https://modelcontextprotocol.io/) to interact with context servers.
+Zed uses the Model Context Protocol (MCP) to interact with context servers.
 
 > The Model Context Protocol (MCP) is an open protocol for connecting LLM applications to external tools and data sources through a standard interface.
 
 ## Supported Features
 
-Zed currently supports MCP's [Tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools) and [Prompts](https://modelcontextprotocol.io/specification/2025-11-25/server/prompts) features.
-We welcome contributions that help advance Zed's MCP feature coverage (Discovery, Sampling, Elicitation, etc).
+Zed supports MCP Tools and Prompts. Contribute to the Zed repository to advance coverage for Discovery, Sampling, and Elicitation.
 
-Zed also handles the `notifications/tools/list_changed` notification from MCP servers. When a server adds, removes, or modifies its available tools at runtime, Zed automatically reloads the tool list without requiring a server restart.
+Zed handles `notifications/tools/list_changed` notifications from MCP servers. When a server modifies available tools, Zed reloads the tool list without a restart.
 
 ## Installing MCP Servers
 
 ### As Extensions
 
-One of the ways you can use MCP servers in Zed is by exposing them as an extension.
-Check out the [MCP Server Extensions](../extensions/mcp-extensions.md) page to learn how to create your own.
+Expose MCP servers as extensions. The MCP Server Extensions page explains how to create them.
 
-Many MCP servers are available as extensions. Find them via:
+Find MCP servers in the extension library:
 
-1. [the Zed website](https://zed.dev/extensions?filter=context-servers)
-2. in the app, open the Command Palette and run the {#action zed::Extensions} action
-3. in the app, go to the Agent Panel's top-right menu and look for the "View Server Extensions" menu item
+1. [Zed website](https://zed.dev/extensions?filter=context-servers)
+2. Open the Command Palette and run {#action zed::Extensions}
+3. Select "View Server Extensions" in the Agent Panel menu
 
-Popular servers available as an extension include:
+Available extensions include:
 
 - [Context7](https://zed.dev/extensions/mcp-server-context7)
 - [GitHub](https://zed.dev/extensions/mcp-server-github)
@@ -42,8 +35,7 @@ Popular servers available as an extension include:
 
 ### As Custom Servers
 
-Creating an extension is not the only way to use MCP servers in Zed.
-You can connect them by adding their commands directly to your settings file ([how to edit](../configuring-zed.md#settings-files)), like so:
+Connect MCP servers by adding commands to the settings file ([edit instructions](../configuring-zed.md#settings-files)):
 
 ```json [settings]
 {
@@ -64,36 +56,31 @@ You can connect them by adding their commands directly to your settings file ([h
 }
 ```
 
-Alternatively, you can also add a custom server by accessing the Agent Panel's Settings view (also accessible via the {#action agent::OpenSettings} action).
-From there, you can add it through the modal that appears when you click the "Add Custom Server" button.
+Alternatively, add a custom server through the Agent Panel Settings ({#action agent::OpenSettings}). Click "Add Custom Server" in the configuration modal.
 
-> Note: When a remote MCP server has no configured `"Authorization"` header, Zed will prompt you to authenticate yourself against the MCP server using the standard MCP OAuth flow.
+Zed prompts for authentication via the standard MCP OAuth flow if a remote server lacks an "Authorization" header.
 
 ## Using MCP Servers
 
 ### Configuration Check
 
-Most MCP servers require configuration after installation.
+MCP servers usually require configuration after installation.
 
-In the case of extensions, after installing it, Zed will pop up a modal displaying what is required for you to properly set it up.
-For example, the GitHub MCP extension requires you to add a [Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).
+Zed displays a setup modal after extension installation. The GitHub extension, for example, requires a Personal Access Token.
 
-In the case of custom servers, make sure you check the provider documentation to determine what type of command, arguments, and environment variables need to be added to the JSON.
+Check provider documentation for custom server commands, arguments, and environment variables.
 
-To check if your MCP server is properly configured, go to the Agent Panel's settings view and watch the indicator dot next to its name.
-If they're running correctly, the indicator will be green and its tooltip will say "Server is active".
-If not, other colors and tooltip messages will indicate what is happening.
+Monitor server status in the Agent Panel settings. A green indicator and "Server is active" tooltip signal correct configuration. Other colors indicate connection or runtime issues.
 
 ### Agent Panel Usage
 
-Once installation is complete, you can return to the Agent Panel and start prompting.
+Open the Agent Panel to start prompting after installation.
 
-How reliably MCP tools get called can vary from model to model.
-Mentioning the MCP server by name can help the model pick tools from that server.
+Tool invocation reliability depends on the model. Use the server name in prompts to guide tool selection.
 
-However, if you want to _ensure_ a given MCP server will be used, you can create [a custom profile](./agent-panel.md#custom-profiles) where all built-in tools (or the ones that could cause conflicts with the server's tools) are turned off and only the tools coming from the MCP server are turned on.
+Create a custom profile to ensure the agent uses specific MCP tools. Disable built-in tools and enable the desired MCP server tools.
 
-As an example, [the Dagger team suggests](https://container-use.com/agent-integrations#zed) doing that with their [Container Use MCP server](https://zed.dev/extensions/mcp-server-container-use):
+The Dagger team suggests this configuration for the [Container Use server](https://zed.dev/extensions/mcp-server-container-use):
 
 ```json [settings]
 "agent": {
@@ -139,35 +126,32 @@ As an example, [the Dagger team suggests](https://container-use.com/agent-integr
 
 ### Tool Permissions
 
-> **Note:** In Zed v0.224.0 and above, tool approval is controlled by `agent.tool_permissions.default`.
-> In earlier versions, it was controlled by the `agent.always_allow_tool_actions` boolean (default `false`).
+Zed v0.224.0 and above use `agent.tool_permissions.default` for tool approval. Earlier versions used `agent.always_allow_tool_actions` (default `false`).
 
-Zed's Agent Panel provides the `agent.tool_permissions.default` setting to control tool approval behavior for the native Zed agent:
+The `agent.tool_permissions.default` setting defines the approval behavior:
 
-- `"confirm"` (default) — Prompts for approval before running any tool action, including MCP tool calls
-- `"allow"` — Auto-approves tool actions without prompting
-- `"deny"` — Blocks all tool actions
+- `"confirm"` (default): Prompt for approval before tool execution.
+- `"allow"`: Approve tool actions automatically.
+- `"deny"`: Block tool actions.
 
-For granular control over specific MCP tools, you can configure per-tool permission rules.
-MCP tools use the key format `mcp:<server>:<tool_name>` — for example, `mcp:github:create_issue`.
-The `default` key on a per-tool entry is the primary mechanism for MCP tools, since pattern-based rules match against an empty string for MCP tools and most patterns won't match.
+Configure per-tool rules for granular control. MCP tools use the format `mcp:<server>:<tool_name>`. Example: `mcp:github:create_issue`.
 
-Learn more about [how tool permissions work](./tool-permissions.md), how to further customize them, and other details.
+Use the `default` key for MCP tools. Pattern-based rules match against empty strings for MCP tools, which usually prevents matches.
+
+Read the [tool permissions documentation](./tool-permissions.md) for customization details.
 
 ### External Agents
 
-MCP servers configured in Zed are forwarded to [external agents](./external-agents.md) via the [Agent Client Protocol](https://agentclientprotocol.com/). External agents can also access MCP servers from their own native configuration files.
+Zed forwards configured MCP servers to [external agents](./external-agents.md) via the Agent Client Protocol. External agents also access servers through native configuration files.
 
-For details on what configuration is shared between Zed and external agents, see [Configuration Boundaries](./external-agents.md#configuration-boundaries).
+Review [Configuration Boundaries](./external-agents.md#configuration-boundaries) for shared data details.
 
 ### Error Handling
 
-When a MCP server encounters an error while processing a tool call, the agent receives the error message directly and the operation fails.
-Common error scenarios include:
+The agent receives an error message and the operation fails when a server error occurs. Scenarios include:
 
-- Invalid parameters passed to the tool
-- Server-side failures (database connection issues, rate limits)
+- Invalid tool parameters
+- Server-side failures like database connection issues or rate limits
 - Unsupported operations or missing resources
 
-The error message from the context server will be shown in the agent's response, allowing you to diagnose and correct the issue.
-Check the context server's logs or documentation for details about specific error codes.
+The agent response displays the server error message. Check server logs or documentation for error code details.

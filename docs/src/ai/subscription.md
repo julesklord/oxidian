@@ -5,14 +5,12 @@ description: Learn about Zed Pro and Business plans for hosted AI models with hi
 
 # Subscription
 
-Zed's hosted models are offered via subscription to Zed Pro or Zed Business.
+Zed offers hosted models through Zed Pro and Zed Business subscriptions.
 
-> You can use [your own API keys](./llm-providers.md) or [external agents](./external-agents.md) without a Zed subscription.
+> You can use [your own API keys](./llm-providers.md) or [external agents](./external-agents.md) without a subscription.
 
-See the following pages for specific aspects of our subscription offering:
+Review these subscription details:
 
-- [Models](./models.md): Overview of the models offered by Zed's subscriptions.
-
-- [Plans and Usage](./plans-and-usage.md): Outlines Zed's plans and how usage is measured.
-
-- [Billing](./billing.md): Billing policies and procedures, and how to update or view various billing settings.
+- [Models](./models.md): Available models.
+- [Plans and Usage](./plans-and-usage.md): Plan tiers and usage tracking.
+- [Billing](./billing.md): Policies, procedures, and account settings.

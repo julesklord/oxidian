@@ -1,22 +1,27 @@
 ---
-title: Configure AI in Zed - Providers, Models, and Settings
-description: Set up AI in Zed with hosted models, your own API keys, or external agents. Includes how to disable AI entirely.
+title: AI Configuration
+description: Manage LLM providers, model settings, and the Agent Panel.
 ---
 
 # Configuration
 
-You can configure multiple dimensions of AI usage in Zed:
+Zed users customize LLM providers, model parameters, and Agent Panel behavior in the settings file.
 
-1. Which LLM providers you can use
-   - Zed's hosted models, which require [authentication](../authentication.md) and [subscription](./subscription.md)
-   - [Using your own API keys](./llm-providers.md), which do not require the above
-   - Using [external agents like Claude Agent](./external-agents.md), which also do not require the above
-2. [Model parameters and usage](./agent-settings.md#model-settings)
-3. [Interactions with the Agent Panel](./agent-settings.md#agent-panel-settings)
+## LLM Providers
 
-## Turning AI Off Entirely
+Zed connects to three types of language model sources:
 
-To disable all AI features, add the following to your settings file ([how to edit](../configuring-zed.md#settings-files)):
+- Authenticated users access [Zed's hosted models](./subscription.md).
+- [Individual API keys](./llm-providers.md) bypass Zed's hosting infrastructure.
+- [External agents](./external-agents.md) like Claude Agent offer alternative workflows.
+
+## Settings
+
+The configuration file defines [model parameters](./agent-settings.md#model-settings) and [panel interactions](./agent-settings.md#agent-panel-settings).
+
+## Disable AI
+
+To deactivate all AI features, add this entry to the settings:
 
 ```json [settings]
 {
@@ -24,4 +29,4 @@ To disable all AI features, add the following to your settings file ([how to edi
 }
 ```
 
-See [this blog post](https://zed.dev/blog/disable-ai-features) for further context on this option.
+[Zed's blog](https://zed.dev/blog/disable-ai-features) provides details on this setting.

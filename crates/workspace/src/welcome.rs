@@ -16,7 +16,7 @@ use menu::{SelectNext, SelectPrevious};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use settings::Settings;
-use ui::{ButtonLike, Divider, DividerColor, KeyBinding, Vector, VectorName, prelude::*};
+use ui::{ButtonLike, Divider, DividerColor, KeyBinding, prelude::*};
 use util::ResultExt;
 use zed_actions::{
     Extensions, OpenKeymap, OpenOnboarding, OpenSettings, assistant::ToggleFocus, command_palette,
@@ -166,19 +166,19 @@ const CONTENT: (Section<4>, Section<3>) = (
         entries: [
             SectionEntry {
                 icon: IconName::Plus,
-                title: "New File",
+                title: "New Note",
                 action: &NewFile,
                 visibility_guard: SectionVisibility::Always,
             },
             SectionEntry {
                 icon: IconName::FolderOpen,
-                title: "Open Project",
+                title: "Open Vault",
                 action: &Open::DEFAULT,
                 visibility_guard: SectionVisibility::Always,
             },
             SectionEntry {
                 icon: IconName::CloudDownload,
-                title: "Clone Repository",
+                title: "Clone Vault",
                 action: &GitClone,
                 visibility_guard: SectionVisibility::Always,
             },
@@ -377,7 +377,7 @@ impl WelcomePage {
     ) -> impl IntoElement {
         v_flex()
             .w_full()
-            .child(SectionHeader::new("Recent Projects"))
+            .child(SectionHeader::new("Recent Vaults"))
             .children(recent_projects)
     }
 
@@ -444,11 +444,11 @@ impl Render for WelcomePage {
         };
 
         let welcome_label = if self.fallback_to_recent_projects {
-            "Welcome back to Zed"
+            "Welcome back to Oxidian"
         } else {
-            "Welcome to Zed"
+            "Welcome to Oxidian"
         };
-
+ 
         h_flex()
             .key_context("Welcome")
             .track_focus(&self.focus_handle(cx))
@@ -473,10 +473,23 @@ impl Render for WelcomePage {
                             .justify_center()
                             .mb_4()
                             .gap_4()
-                            .child(Vector::square(VectorName::ZedLogo, rems_from_px(45.)))
+                            .child(
+                                h_flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .w_12()
+                                    .h_12()
+                                    .rounded_xl()
+                                    .bg(cx.theme().colors().element_active)
+                                    .child(
+                                        Icon::new(IconName::Book)
+                                            .color(Color::Accent)
+                                            .size(IconSize::XLarge),
+                                    ),
+                            )
                             .child(
                                 v_flex().child(Headline::new(welcome_label)).child(
-                                    Label::new("The editor for what's next")
+                                    Label::new("The native, Rust-powered Markdown Knowledge Base")
                                         .size(LabelSize::Small)
                                         .color(Color::Muted)
                                         .italic(),

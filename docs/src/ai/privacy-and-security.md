@@ -1,29 +1,29 @@
 ---
 title: Privacy Overview - Zed
-description: "Zed's approach to privacy: opt-in data sharing, zero-data retention with AI providers, and an open-source codebase you can inspect."
+description: "Zed features opt-in data sharing, zero data retention with AI providers, and a public codebase."
 ---
 
 # Privacy Overview
 
-Zed collects minimal data necessary to serve and improve the product. Features that could share data are either opt-in or can be disabled.
+Zed collects the data required to run and improve the editor. You opt into data sharing features or disable them.
 
-- **Telemetry:** Zed collects only the data necessary to understand usage and fix issues. Client-side telemetry can be disabled in settings. See [Telemetry](../telemetry.md).
+- **Telemetry:** Zed collects data to analyze usage and fix bugs. You disable client-side telemetry in settings. See [Telemetry](../telemetry.md).
 
-- **AI:** Zed doesn't store your prompts or code context. Data sharing for AI improvement is opt-in, and each share is a one-time action; it doesn't grant permission for future collection. You can use Zed's AI features without sharing any data with Zed. See [AI Improvement](./ai-improvement.md).
+- **AI:** Zed discards your prompts and code context. You opt into data sharing for AI improvement. Each share functions as a single action. It grants no future collection permissions. Use Zed AI features without sharing data. See [AI Improvement](./ai-improvement.md).
 
-- **Open source:** Zed's codebase is public. You can inspect exactly what data is collected and how it's handled. If you find issues, [report them](https://github.com/zed-industries/zed/issues).
+- **Open source:** Zed maintains a public codebase. You inspect the data Zed collects and review the handling processes. [Report issues](https://github.com/zed-industries/zed/issues).
 
-On Zed Business, administrators can enforce these settings org-wide so members can't opt in to data sharing individually. See [Privacy for Business](../business/privacy.md).
+Zed Business administrators enforce these settings across the organization. Members lose the ability to opt into data sharing individually. See [Privacy for Business](../business/privacy.md).
 
 ## Related documentation
 
-- [Tool Permissions](./tool-permissions.md): Configure which agent actions are auto-approved, blocked, or require confirmation.
-- [Worktree Trust](../worktree-trust.md): How Zed opens files and directories in restricted mode.
-- [Telemetry](../telemetry.md): What telemetry Zed collects and how to control it.
-- [AI Improvement](./ai-improvement.md): How data sharing for AI improvement works and how to opt in.
-- [Privacy for Business](../business/privacy.md): How Zed Business enforces privacy settings across an organization.
-- [Authentication](../authentication.md): When and why authentication is needed.
-- [SOC2](../soc2.md): Zed's security certification status.
+- [Tool Permissions](./tool-permissions.md): Configure auto-approved, blocked, and confirmed agent actions.
+- [Worktree Trust](../worktree-trust.md): Review how Zed restricts file and directory access.
+- [Telemetry](../telemetry.md): Identify the telemetry Zed collects and control data flow.
+- [AI Improvement](./ai-improvement.md): Review AI data sharing mechanics and opt-in steps.
+- [Privacy for Business](../business/privacy.md): Zed Business enforces organization privacy settings.
+- [Authentication](../authentication.md): Understand authentication requirements.
+- [SOC2](../soc2.md): Review Zed security certification status.
 
 ## Legal
 

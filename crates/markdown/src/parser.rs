@@ -45,9 +45,10 @@ pub(crate) struct ParsedMarkdownData {
     pub heading_slugs: HashMap<SharedString, usize>,
     pub footnote_definitions: HashMap<SharedString, usize>,
     // OXIDIAN BEGIN
-    /// Wiki-links found in the document, as (byte_offset, WikiLink) pairs.
+    /// Wiki-links found in the document, as (Range<usize>, WikiLink) pairs.
     /// Populated by pre-scanning the raw text before pulldown-cmark.
-    pub wiki_links: Vec<(usize, WikiLink)>,
+    #[allow(dead_code)]
+    pub wiki_links: Vec<(Range<usize>, WikiLink)>,
     // OXIDIAN END
 }
 
@@ -650,12 +651,13 @@ pub(crate) fn parse_markdown_with_options(
     };
     let footnote_definitions = build_footnote_definitions(&state.events);
 
-    // OXIDIAN BEGIN — pre-scan for wiki-links
+    // OXIDIAN BEGIN — pre-scan and inject wiki-links
     let wiki_links = extract_wiki_links(text);
+    let events = inject_wiki_link_events(state.events, &wiki_links);
     // OXIDIAN END
 
     ParsedMarkdownData {
-        events: state.events,
+        events,
         language_names,
         language_paths,
         root_block_starts: state.root_block_starts,
@@ -672,9 +674,9 @@ pub(crate) fn parse_markdown_with_options(
 // OXIDIAN BEGIN — wiki-link pre-scanner
 
 /// Scans raw Markdown text for `[[wiki-link]]` syntax before pulldown-cmark processing.
-/// Returns a list of (byte_offset_of_opening_bracket, WikiLink) pairs.
+/// Returns a list of (Range<usize>, WikiLink) pairs.
 /// Skips links inside code fences and inline code spans.
-fn extract_wiki_links(text: &str) -> Vec<(usize, WikiLink)> {
+fn extract_wiki_links(text: &str) -> Vec<(Range<usize>, WikiLink)> {
     let mut results = Vec::new();
     let mut in_code_fence = false;
     let mut byte_offset: usize = 0;
@@ -708,7 +710,11 @@ fn extract_wiki_links(text: &str) -> Vec<(usize, WikiLink)> {
 
                     if !inner.is_empty() && !inner.contains('[') {
                         let link_byte_offset = byte_offset + open_abs;
-                        results.push((link_byte_offset, WikiLink::parse(inner)));
+                        let link_len = inner.len() + 4;
+                        results.push((
+                            link_byte_offset..link_byte_offset + link_len,
+                            WikiLink::parse(inner),
+                        ));
                     }
                     search_start = close_abs + 2;
                 } else {
@@ -721,6 +727,78 @@ fn extract_wiki_links(text: &str) -> Vec<(usize, WikiLink)> {
     }
 
     results
+}
+
+/// Post-processes MarkdownEvents to inject Start/Text/End events for wiki-links.
+fn inject_wiki_link_events(
+    events: Vec<(Range<usize>, MarkdownEvent)>,
+    wiki_links: &[(Range<usize>, WikiLink)],
+) -> Vec<(Range<usize>, MarkdownEvent)> {
+    if wiki_links.is_empty() {
+        return events;
+    }
+
+    let mut new_events = Vec::new();
+    let mut wiki_links_iter = wiki_links.iter().peekable();
+    let mut events_iter = events.into_iter().peekable();
+
+    while let Some((event_range, event)) = events_iter.next() {
+        let mut handled = false;
+        while let Some(link) = wiki_links_iter.peek() {
+            let link_range = &link.0;
+            let link_info = &link.1;
+
+            if event_range.start >= link_range.start && event_range.end <= link_range.end {
+                // This event is part of the wiki-link (e.g. '[', '[', 'My Target', ']', ']') so we discard it.
+                // If it is the first event in the wiki-link range, we push the complete link events sequence.
+                if event_range.start == link_range.start {
+                    let display_label = if let Some(alias) = &link_info.alias {
+                        alias.to_string()
+                    } else if let Some(heading) = &link_info.heading {
+                        format!("{} > {}", link_info.target, heading)
+                    } else {
+                        link_info.target.to_string()
+                    };
+
+                    // 1. Link Start Event
+                    new_events.push((
+                        link_range.start..link_range.start + 2,
+                        MarkdownEvent::Start(MarkdownTag::Link {
+                            link_type: pulldown_cmark::LinkType::Inline,
+                            dest_url: SharedString::from(link_info.target.to_string()),
+                            title: SharedString::default(),
+                            id: SharedString::default(),
+                        }),
+                    ));
+
+                    // 2. Link Text Content Event
+                    new_events.push((
+                        link_range.start + 2..link_range.end - 2,
+                        MarkdownEvent::SubstitutedText(display_label),
+                    ));
+
+                    // 3. Link End Event
+                    new_events.push((
+                        link_range.end - 2..link_range.end,
+                        MarkdownEvent::End(MarkdownTagEnd::Link),
+                    ));
+                }
+
+                handled = true;
+                break;
+            } else if event_range.start >= link_range.end {
+                wiki_links_iter.next();
+            } else {
+                break;
+            }
+        }
+
+        if !handled {
+            new_events.push((event_range, event));
+        }
+    }
+
+    new_events
 }
 
 // OXIDIAN END
@@ -1736,5 +1814,47 @@ mod tests {
                 None,
             ]
         );
+    }
+
+    #[test]
+    fn test_wiki_link_event_injection() {
+        let parsed = parse_markdown_with_options(
+            "Check [[My Target]] or [[My Target|Custom Alias]] here.",
+            false,
+            false,
+            false,
+        );
+
+        // Verify wiki_links field is populated correctly
+        assert_eq!(parsed.wiki_links.len(), 2);
+        assert_eq!(parsed.wiki_links[0].1.target.as_ref(), "My Target");
+        assert_eq!(parsed.wiki_links[0].1.alias, None);
+        assert_eq!(parsed.wiki_links[1].1.target.as_ref(), "My Target");
+        assert_eq!(parsed.wiki_links[1].1.alias.as_ref().map(|s| s.as_ref()), Some("Custom Alias"));
+
+        // Verify the injected events
+        let link_events: Vec<_> = parsed
+            .events
+            .iter()
+            .filter(|(_, event)| {
+                matches!(
+                    event,
+                    Start(Link { .. }) | End(MarkdownTagEnd::Link) | SubstitutedText(_)
+                )
+            })
+            .collect();
+
+        // There should be two sets of: Start(Link), SubstitutedText, End(Link)
+        assert_eq!(link_events.len(), 6);
+
+        // First link
+        assert!(matches!(link_events[0].1, Start(Link { ref dest_url, .. }) if dest_url == "My Target"));
+        assert_eq!(link_events[1].1, SubstitutedText("My Target".into()));
+        assert!(matches!(link_events[2].1, End(MarkdownTagEnd::Link)));
+
+        // Second link
+        assert!(matches!(link_events[3].1, Start(Link { ref dest_url, .. }) if dest_url == "My Target"));
+        assert_eq!(link_events[4].1, SubstitutedText("Custom Alias".into()));
+        assert!(matches!(link_events[5].1, End(MarkdownTagEnd::Link)));
     }
 }

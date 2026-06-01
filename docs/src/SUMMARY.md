@@ -1,23 +1,21 @@
 # Summary
 
 # Welcome
-
-- [Getting Started](./getting-started.md)
-- [Installation](./installation.md)
+- [Start here](./getting-started.md)
+- [Install Zed](./installation.md)
   - [Update](./update.md)
   - [Uninstall](./uninstall.md)
-- [Troubleshooting](./troubleshooting.md)
+- [Troubleshoot](./troubleshooting.md)
 
 # AI
-
-- [Overview](./ai/overview.md)
+- [Basics](./ai/overview.md)
 - [Agent Panel](./ai/agent-panel.md)
   - [Tools](./ai/tools.md)
-  - [Tool Permissions](./ai/tool-permissions.md)
+  - [Permissions](./ai/tool-permissions.md)
   - [External Agents](./ai/external-agents.md)
 - [Parallel Agents](./ai/parallel-agents.md)
 - [Inline Assistant](./ai/inline-assistant.md)
-- [Edit Prediction](./ai/edit-prediction.md)
+- [Predict Edits](./ai/edit-prediction.md)
 - [Skills](./ai/skills.md)
 - [Rules](./ai/rules.md)
 - [Model Context Protocol](./ai/mcp.md)
@@ -26,20 +24,19 @@
 - [Models](./ai/models.md)
 - [Providers](./ai/llm-providers.md)
 
-# Working with Code
-
-- [Windows & Projects](./windows-and-projects.md)
-- [Editing Code](./editing-code.md)
+# Work with Code
+- [Manage Windows & Projects](./windows-and-projects.md)
+- [Edit Code](./editing-code.md)
   - [Code Completions](./completions.md)
   - [Snippets](./snippets.md)
-  - [Diagnostics & Quick Fixes](./diagnostics.md)
+  - [Diagnostics & Fixes](./diagnostics.md)
   - [Multibuffers](./multibuffers.md)
-- [Finding & Navigating](./finding-navigating.md)
+- [Find & Navigate](./finding-navigating.md)
   - [Command Palette](./command-palette.md)
   - [Outline Panel](./outline-panel.md)
   - [Project Panel](./project-panel.md)
   - [Tab Switcher](./tab-switcher.md)
-- [Running & Testing](./running-testing.md)
+- [Run & Test](./running-testing.md)
   - [Terminal](./terminal.md)
   - [Tasks](./tasks.md)
   - [Debugger](./debugger.md)
@@ -47,61 +44,53 @@
 - [Git](./git.md)
 - [Modelines](./modelines.md)
 
-# Collaboration
-
-- [Overview](./collaboration/overview.md)
+# Collaborate
+- [Basics](./collaboration/overview.md)
   - [Channels](./collaboration/channels.md)
-  - [Contacts and Private Calls](./collaboration/contacts-and-private-calls.md)
+  - [Contacts & Private Calls](./collaboration/contacts-and-private-calls.md)
 
 # Remote Development
-
-- [Overview](./remote-development.md)
+- [Basics](./remote-development.md)
 - [Environment Variables](./environment.md)
 - [Dev Containers](./dev-containers.md)
 
 # Account & Billing
-
 - [Authenticate](./authentication.md)
-- [Plans & Pricing](./ai/plans-and-usage.md)
+- [Plans & Usage](./ai/plans-and-usage.md)
 - [Billing](./ai/billing.md)
 
 # Zed Business
-
-- [Overview](./business/overview.md)
+- [Basics](./business/overview.md)
 - [Organizations](./business/organizations.md)
 - [Roles & Permissions](./roles.md)
 - [Admin Controls](./business/admin-controls.md)
-- [Business Support](./business/business-support.md)
+- [Support](./business/business-support.md)
 
 # Privacy & Security
-
-- [Overview](./ai/privacy-and-security.md)
+- [Basics](./ai/privacy-and-security.md)
   - [Worktree Trust](./worktree-trust.md)
   - [AI Improvement](./ai/ai-improvement.md)
 - [Privacy for Business](./business/privacy.md)
 - [Telemetry](./telemetry.md)
 - [SOC2](./soc2.md)
 
-# Platform Support
-
+# Platforms
 - [macOS](./macos.md)
 - [Windows](./windows.md)
 - [Linux](./linux.md)
 
-# Customization
-
+# Customize
 - [Appearance](./appearance.md)
   - [Themes](./themes.md)
   - [Icon Themes](./icon-themes.md)
-  - [Fonts & Visual Tweaks](./visual-customization.md)
+  - [Fonts & Visuals](./visual-customization.md)
 - [Keybindings](./key-bindings.md)
   - [Vim Mode](./vim.md)
   - [Helix Mode](./helix.md)
 
 # Language Support
-
-- [All Languages](./languages.md)
-- [Configuring Languages](./configuring-languages.md)
+- [Supported Languages](./languages.md)
+- [Configure Languages](./configuring-languages.md)
   - [Toolchains](./toolchains.md)
   - [Semantic Tokens](./semantic-tokens.md)
 - [Ansible](./languages/ansible.md)
@@ -177,21 +166,19 @@
 - [Zig](./languages/zig.md)
 
 # Extensions
+- [Basics](./extensions.md)
+- [Install Extensions](./extensions/installing-extensions.md)
+- [Develop Extensions](./extensions/developing-extensions.md)
+- [Capabilities](./extensions/capabilities.md)
+- [Languages](./extensions/languages.md)
+- [Debuggers](./extensions/debugger-extensions.md)
+- [Themes](./extensions/themes.md)
+- [Icon Themes](./extensions/icon-themes.md)
+- [Snippets](./extensions/snippets.md)
+- [Agent Servers](./extensions/agent-servers.md)
+- [MCP Servers](./extensions/mcp-extensions.md)
 
-- [Overview](./extensions.md)
-- [Installing Extensions](./extensions/installing-extensions.md)
-- [Developing Extensions](./extensions/developing-extensions.md)
-- [Extension Capabilities](./extensions/capabilities.md)
-- [Language Extensions](./extensions/languages.md)
-- [Debugger Extensions](./extensions/debugger-extensions.md)
-- [Theme Extensions](./extensions/themes.md)
-- [Icon Theme Extensions](./extensions/icon-themes.md)
-- [Snippets Extensions](./extensions/snippets.md)
-- [Agent Server Extensions](./extensions/agent-servers.md)
-- [MCP Server Extensions](./extensions/mcp-extensions.md)
-
-# Coming From…
-
+# Migrate
 - [VS Code](./migrate/vs-code.md)
 - [IntelliJ IDEA](./migrate/intellij.md)
 - [PyCharm](./migrate/pycharm.md)
@@ -199,20 +186,18 @@
 - [RustRover](./migrate/rustrover.md)
 
 # Reference
+- [Settings](./reference/all-settings.md)
+- [Actions](./all-actions.md)
+- [CLI](./reference/cli.md)
 
-- [All Settings](./reference/all-settings.md)
-- [All Actions](./all-actions.md)
-- [CLI Reference](./reference/cli.md)
-
-# Developing Zed
-
-- [Developing Zed](./development.md)
+# Develop Zed
+- [Build Zed](./development.md)
   - [macOS](./development/macos.md)
   - [Linux](./development/linux.md)
   - [Windows](./development/windows.md)
   - [FreeBSD](./development/freebsd.md)
-  - [Using Debuggers](./development/debuggers.md)
+  - [Debuggers](./development/debuggers.md)
   - [Performance](./performance.md)
   - [Glossary](./development/glossary.md)
 - [Release Notes](./development/release-notes.md)
-- [Debugging Crashes](./development/debugging-crashes.md)
+- [Debug Crashes](./development/debugging-crashes.md)

@@ -731,6 +731,14 @@ fn initialize_panels(window: &mut Window, cx: &mut Context<Workspace>) -> Task<a
         let channels_panel =
             collab_ui::collab_panel::CollabPanel::load(workspace_handle.clone(), cx.clone());
         let debug_panel = DebugPanel::load(workspace_handle.clone(), cx);
+        // OXIDIAN BEGIN
+        let backlinks_panel =
+            oxidian_backlinks::BacklinksPanel::load(workspace_handle.clone(), cx.clone());
+        let daily_notes_panel =
+            oxidian_daily::DailyNotesPanel::load(workspace_handle.clone(), cx.clone());
+        let tag_browser_panel =
+            oxidian_frontmatter::TagBrowserPanel::load(workspace_handle.clone(), cx.clone());
+        // OXIDIAN END
 
         async fn add_panel_when_ready(
             panel_task: impl Future<Output = anyhow::Result<Entity<impl workspace::Panel>>> + 'static,
@@ -754,6 +762,11 @@ fn initialize_panels(window: &mut Window, cx: &mut Context<Workspace>) -> Task<a
             add_panel_when_ready(git_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(channels_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(debug_panel, workspace_handle.clone(), cx.clone()),
+            // OXIDIAN BEGIN
+            add_panel_when_ready(backlinks_panel, workspace_handle.clone(), cx.clone()),
+            add_panel_when_ready(daily_notes_panel, workspace_handle.clone(), cx.clone()),
+            add_panel_when_ready(tag_browser_panel, workspace_handle.clone(), cx.clone()),
+            // OXIDIAN END
             initialize_agent_panel(workspace_handle, cx.clone()).map(|r| r.log_err()),
         );
 

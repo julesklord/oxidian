@@ -1,0 +1,26 @@
+[package]
+name = "oxidian_frontmatter"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license = "GPL-3.0-or-later"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/oxidian_frontmatter.rs"
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+collections.workspace = true
+db = { path = "../db" }
+editor = { path = "../editor" }
+gpui.workspace = true
+oxidian_core = { path = "../oxidian_core" }
+oxidian_vault = { path = "../oxidian_vault" }
+text.workspace = true
+ui.workspace = true
+workspace = { path = "../workspace" }
