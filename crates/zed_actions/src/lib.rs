@@ -61,13 +61,13 @@ actions!(
         OpenServerSettings,
         /// Quits the application.
         Quit,
-        /// Shows information about Zed.
+        /// Shows information about Oxidian.
         About,
         /// Opens the documentation website.
         OpenDocs,
         /// Views open source licenses.
         OpenLicenses,
-        /// Opens the Zed status page.
+        /// Opens the Oxidian status page.
         OpenStatusPage,
         /// Opens the telemetry log.
         OpenTelemetryLog,

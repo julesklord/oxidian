@@ -62,7 +62,7 @@ pub(crate) fn zed_default_dark() -> Theme {
     let editor = hsla(220. / 360., 13. / 100., 10. / 100., 1.);
     let elevated_surface = hsla(220. / 360., 13. / 100., 12. / 100., 1.);
     let hover = hsla(220. / 360., 13. / 100., 18. / 100., 1.);
- 
+
     let blue = hsla(160. / 360., 85. / 100., 55. / 100., 1.0); // Vibrant Emerald Green accent
     let gray = hsla(218.8 / 360., 10. / 100., 40. / 100., 1.0);
     let green = hsla(160. / 360., 85. / 100., 55. / 100., 1.0);

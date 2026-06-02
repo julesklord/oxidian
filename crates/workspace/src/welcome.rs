@@ -162,52 +162,52 @@ impl SectionEntry {
 
 const CONTENT: (Section<4>, Section<3>) = (
     Section {
-        title: "Get Started",
+        title: "Comenzar",
         entries: [
             SectionEntry {
                 icon: IconName::Plus,
-                title: "New Note",
+                title: "Nueva Nota",
                 action: &NewFile,
                 visibility_guard: SectionVisibility::Always,
             },
             SectionEntry {
                 icon: IconName::FolderOpen,
-                title: "Open Vault",
+                title: "Abrir Silo",
                 action: &Open::DEFAULT,
                 visibility_guard: SectionVisibility::Always,
             },
             SectionEntry {
                 icon: IconName::CloudDownload,
-                title: "Clone Vault",
+                title: "Clonar Silo",
                 action: &GitClone,
                 visibility_guard: SectionVisibility::Always,
             },
             SectionEntry {
                 icon: IconName::ListCollapse,
-                title: "Open Command Palette",
+                title: "Abrir Paleta de Comandos",
                 action: &command_palette::Toggle,
                 visibility_guard: SectionVisibility::Always,
             },
         ],
     },
     Section {
-        title: "Configure",
+        title: "Configurar",
         entries: [
             SectionEntry {
                 icon: IconName::Settings,
-                title: "Open Settings",
+                title: "Abrir Ajustes",
                 action: &OpenSettings,
                 visibility_guard: SectionVisibility::Always,
             },
             SectionEntry {
                 icon: IconName::Keyboard,
-                title: "Customize Keymaps",
+                title: "Personalizar Atajos de Teclado",
                 action: &OpenKeymap,
                 visibility_guard: SectionVisibility::Always,
             },
             SectionEntry {
                 icon: IconName::Blocks,
-                title: "Explore Extensions",
+                title: "Explorar Extensiones",
                 action: &Extensions {
                     category_filter: None,
                     id: None,
@@ -326,7 +326,7 @@ impl WelcomePage {
         let focus = self.focus_handle.clone();
         let color = cx.theme().colors();
 
-        let description = "Run multiple threads at once, mix and match any ACP-compatible agent, and keep work conflict-free with worktrees.";
+        let description = "Ejecuta múltiples hilos de IA a la vez, combina agentes y mantén tu trabajo libre de conflictos con worktrees.";
 
         v_flex()
             .w_full()
@@ -347,7 +347,7 @@ impl WelcomePage {
                             .color(Color::Muted)
                             .size(IconSize::Small),
                     )
-                    .child(Label::new("Collaborate with Agents")),
+                    .child(Label::new("Colaborar con Agentes")),
             )
             .child(
                 Label::new(description)
@@ -356,7 +356,7 @@ impl WelcomePage {
                     .mb_2(),
             )
             .child(
-                Button::new("open-agent", "Open Agent Panel")
+                Button::new("open-agent", "Abrir Panel de Agente")
                     .full_width()
                     .tab_index(tab_index as isize)
                     .style(ButtonStyle::Outlined)
@@ -377,7 +377,7 @@ impl WelcomePage {
     ) -> impl IntoElement {
         v_flex()
             .w_full()
-            .child(SectionHeader::new("Recent Vaults"))
+            .child(SectionHeader::new("Silos Recientes"))
             .children(recent_projects)
     }
 
@@ -406,6 +406,72 @@ impl WelcomePage {
         )
     }
 }
+
+// OXIDIAN BEGIN — FeatureCard for Oxidian capabilities showcase
+#[derive(IntoElement)]
+struct FeatureCard {
+    icon: IconName,
+    title: SharedString,
+    description: SharedString,
+}
+
+impl FeatureCard {
+    fn new(
+        icon: IconName,
+        title: impl Into<SharedString>,
+        description: impl Into<SharedString>,
+    ) -> Self {
+        Self {
+            icon,
+            title: title.into(),
+            description: description.into(),
+        }
+    }
+}
+
+impl RenderOnce for FeatureCard {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let colors = cx.theme().colors();
+        h_flex()
+            .w_full()
+            .p_3()
+            .gap_4()
+            .rounded_xl()
+            .border_1()
+            .border_color(colors.border_variant)
+            .bg(colors.panel_background)
+            .hover(|style| style.bg(colors.element_hover).border_color(colors.border))
+            .child(
+                h_flex()
+                    .items_center()
+                    .justify_center()
+                    .w_10()
+                    .h_10()
+                    .rounded_lg()
+                    .bg(colors.element_active)
+                    .child(
+                        Icon::new(self.icon)
+                            .color(Color::Accent)
+                            .size(IconSize::Medium),
+                    ),
+            )
+            .child(
+                v_flex()
+                    .flex_1()
+                    .child(
+                        Label::new(self.title)
+                            .weight(gpui::FontWeight::BOLD)
+                            .size(LabelSize::Small),
+                    )
+                    .child(
+                        Label::new(self.description)
+                            .color(Color::Muted)
+                            .size(LabelSize::XSmall),
+                    ),
+            )
+    }
+}
+// OXIDIAN END
 
 impl Render for WelcomePage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -444,11 +510,11 @@ impl Render for WelcomePage {
         };
 
         let welcome_label = if self.fallback_to_recent_projects {
-            "Welcome back to Oxidian"
+            "Bienvenido de nuevo a Oxidian"
         } else {
-            "Welcome to Oxidian"
+            "Bienvenido a Oxidian"
         };
- 
+
         h_flex()
             .key_context("Welcome")
             .track_focus(&self.focus_handle(cx))
@@ -458,64 +524,129 @@ impl Render for WelcomePage {
             .size_full()
             .bg(cx.theme().colors().editor_background)
             .justify_center()
+            .items_center()
             .child(
-                v_flex()
-                    .id("welcome-content")
-                    .p_8()
-                    .max_w_128()
+                h_flex()
+                    .id("welcome-container")
                     .size_full()
-                    .gap_6()
-                    .justify_center()
-                    .overflow_y_scroll()
+                    .max_w(rems(64.))
+                    .justify_between()
+                    .items_center()
+                    .gap_8()
+                    .p_8()
                     .child(
-                        h_flex()
-                            .w_full()
+                        v_flex()
+                            .id("welcome-content-left")
+                            .flex_1()
+                            .size_full()
+                            .gap_6()
                             .justify_center()
-                            .mb_4()
-                            .gap_4()
                             .child(
                                 h_flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .w_12()
-                                    .h_12()
-                                    .rounded_xl()
-                                    .bg(cx.theme().colors().element_active)
+                                    .w_full()
+                                    .mb_4()
+                                    .gap_4()
                                     .child(
-                                        Icon::new(IconName::Book)
-                                            .color(Color::Accent)
-                                            .size(IconSize::XLarge),
+                                        h_flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .w_12()
+                                            .h_12()
+                                            .rounded_xl()
+                                            .bg(cx.theme().colors().element_active)
+                                            .child(
+                                                Icon::new(IconName::Book)
+                                                    .color(Color::Accent)
+                                                    .size(IconSize::XLarge),
+                                            ),
+                                    )
+                                    .child(
+                                        v_flex().child(Headline::new(welcome_label)).child(
+                                            Label::new("Base de conocimientos Markdown nativa en Rust")
+                                                .size(LabelSize::Small)
+                                                .color(Color::Muted)
+                                                .italic(),
+                                        ),
                                     ),
                             )
-                            .child(
-                                v_flex().child(Headline::new(welcome_label)).child(
-                                    Label::new("The native, Rust-powered Markdown Knowledge Base")
-                                        .size(LabelSize::Small)
-                                        .color(Color::Muted)
-                                        .italic(),
-                                ),
-                            ),
+                            .child(first_section.render(Default::default(), &self.focus_handle))
+                            .child(second_section)
+                            .when(ai_enabled && !showing_recent_projects, |this| {
+                                let agent_tab_index = next_tab_index;
+                                next_tab_index += 1;
+                                this.child(self.render_agent_card(agent_tab_index, cx))
+                            })
+                            .when(!self.fallback_to_recent_projects, |this| {
+                                this.child(
+                                    v_flex().gap_4().child(Divider::horizontal()).child(
+                                        Button::new("welcome-exit", "Volver al Onboarding")
+                                            .tab_index(next_tab_index as isize)
+                                            .full_width()
+                                            .label_size(LabelSize::XSmall)
+                                            .on_click(|_, window, cx| {
+                                                window.dispatch_action(OpenOnboarding.boxed_clone(), cx);
+                                            }),
+                                    ),
+                                )
+                            }),
                     )
-                    .child(first_section.render(Default::default(), &self.focus_handle))
-                    .child(second_section)
-                    .when(ai_enabled && !showing_recent_projects, |this| {
-                        let agent_tab_index = next_tab_index;
-                        next_tab_index += 1;
-                        this.child(self.render_agent_card(agent_tab_index, cx))
-                    })
-                    .when(!self.fallback_to_recent_projects, |this| {
-                        this.child(
-                            v_flex().gap_4().child(Divider::horizontal()).child(
-                                Button::new("welcome-exit", "Return to Onboarding")
-                                    .tab_index(next_tab_index as isize)
-                                    .full_width()
-                                    .label_size(LabelSize::XSmall)
-                                    .on_click(|_, window, cx| {
-                                        window.dispatch_action(OpenOnboarding.boxed_clone(), cx);
-                                    }),
-                            ),
-                        )
-                    }),
+                    .child(
+                        v_flex()
+                            .h_flex()
+                            .h_5_6()
+                            .child(Divider::vertical().color(DividerColor::BorderVariant))
+                    )
+                    .child(
+                        v_flex()
+                            .id("welcome-content-right")
+                            .flex_1()
+                            .size_full()
+                            .gap_3()
+                            .justify_center()
+                            .child(
+                                v_flex()
+                                    .mb_1()
+                                    .child(
+                                        Headline::new("Descubre Oxidian v0.1.0")
+                                            .size(HeadlineSize::Small),
+                                    )
+                                    .child(
+                                        Label::new("Tu base de conocimientos local")
+                                            .color(Color::Muted)
+                                            .size(LabelSize::Small),
+                                    ),
+                            )
+                            .child(FeatureCard::new(
+                                IconName::Link,
+                                "Wiki-Links",
+                                "Navega por [[wiki-links]] con saltos rápidos y soporte de anchors # Sección.",
+                            ))
+                            .child(FeatureCard::new(
+                                IconName::FileMarkdown,
+                                "Paneles Zettelkasten GPUI",
+                                "Backlinks, explorador de etiquetas y notas diarias.",
+                            ))
+                            .child(FeatureCard::new(
+                                IconName::DatabaseZap,
+                                "Escáner SQLite Reactivo",
+                                "Indexa el sistema de archivos con SQLite para búsquedas instantáneas.",
+                            ))
+                            .child(FeatureCard::new(
+                                IconName::Blocks,
+                                "Marksman LSP Integrado",
+                                "Autocompleta enlaces, muestra diagnósticos y valida texto al escribir.",
+                            ))
+                            .child(FeatureCard::new(
+                                IconName::GitGraph,
+                                "Oxidian Matrix (Vista Gráfica)",
+                                "Visualiza notas y conexiones en un mapa tridimensional.",
+                            ))
+                            .child(FeatureCard::new(
+                                IconName::Server,
+                                "Aislamiento Side-by-Side",
+                                "Configuración, caché y bases de datos independientes para coexistir con Zed.",
+                            ))
+                    )
             )
     }
 }

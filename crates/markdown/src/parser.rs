@@ -52,7 +52,6 @@ pub(crate) struct ParsedMarkdownData {
     // OXIDIAN END
 }
 
-
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ParsedMetadataBlock {
     pub content_range: Range<usize>,
@@ -1830,7 +1829,10 @@ mod tests {
         assert_eq!(parsed.wiki_links[0].1.target.as_ref(), "My Target");
         assert_eq!(parsed.wiki_links[0].1.alias, None);
         assert_eq!(parsed.wiki_links[1].1.target.as_ref(), "My Target");
-        assert_eq!(parsed.wiki_links[1].1.alias.as_ref().map(|s| s.as_ref()), Some("Custom Alias"));
+        assert_eq!(
+            parsed.wiki_links[1].1.alias.as_ref().map(|s| s.as_ref()),
+            Some("Custom Alias")
+        );
 
         // Verify the injected events
         let link_events: Vec<_> = parsed
@@ -1848,12 +1850,16 @@ mod tests {
         assert_eq!(link_events.len(), 6);
 
         // First link
-        assert!(matches!(link_events[0].1, Start(Link { ref dest_url, .. }) if dest_url == "My Target"));
+        assert!(
+            matches!(link_events[0].1, Start(Link { ref dest_url, .. }) if dest_url == "My Target")
+        );
         assert_eq!(link_events[1].1, SubstitutedText("My Target".into()));
         assert!(matches!(link_events[2].1, End(MarkdownTagEnd::Link)));
 
         // Second link
-        assert!(matches!(link_events[3].1, Start(Link { ref dest_url, .. }) if dest_url == "My Target"));
+        assert!(
+            matches!(link_events[3].1, Start(Link { ref dest_url, .. }) if dest_url == "My Target")
+        );
         assert_eq!(link_events[4].1, SubstitutedText("Custom Alias".into()));
         assert!(matches!(link_events[5].1, End(MarkdownTagEnd::Link)));
     }

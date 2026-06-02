@@ -1,6 +1,6 @@
 # Zed Docs
 
-Zed documentation publishes to https://zed.dev/docs automatically after every push to the main branch. 
+Zed documentation publishes to https://zed.dev/docs automatically after every push to the main branch.
 
 To preview changes locally, install mdBook version 0.4.40. Generate the action metadata before serving the book:
 
@@ -31,7 +31,7 @@ Link to external assets instead of storing binary files in the repository. Host 
 
 The `docs-proxy` Cloudflare router forwards requests from `zed.dev/docs` to Cloudflare Pages. GitHub Actions manage the deployment via `.github/workflows/deploy_docs.yml` on every push to main.
 
-Static assets in `theme/page-toc.js` and `theme/page-doc.css` handle the table of contents. 
+Static assets in `theme/page-toc.js` and `theme/page-doc.css` handle the table of contents.
 
 ## Referencing Keybindings and Actions
 
@@ -51,9 +51,11 @@ Templates modify doc source through regex matching. Find implementation details 
 
 ## Consent Banner
 
-The documentation uses a pre-bundled `c15t` package because the pipeline lacks a JS bundler. Rebuild the bundle manually when updating `c15t`:
+The documentation uses a pre-bundled `c15t` package because the pipeline lacks a JS bundler.
 
-```
+Rebuild the bundle manually when updating `c15t`:
+
+```fish
 mkdir c15t-bundle && cd c15t-bundle
 npm init -y
 npm install c15t@<version> esbuild
@@ -67,7 +69,8 @@ Update the filename in `book.toml` after generating the new bundle.
 
 ## Postprocessor
 
-The postprocessor adds support for page-specific titles and meta descriptions using front matter. It wraps the HTML renderer and modifies the head tags.
+The postprocessor adds support for page-specific titles and meta descriptions using front matter.
+It wraps the HTML renderer and modifies the head tags.
 
 Define metadata at the top of the markdown file:
 
@@ -80,12 +83,14 @@ description: Page-specific description
 # Editor
 ```
 
-The postprocessor replaces the default title and a `#description#` marker in the HTML. 
+The postprocessor replaces the default title and a `#description#` marker in the HTML.
 
 Front matter parsing follows these rules:
+
 * Place the block at the top of the file.
 * Keep keys and values on a single line.
 * Do not use double quotes or multi-line values.
 * Use simple ASCII text without unicode characters.
 
-If front matter is missing, the system uses the `default-title` and `default-description` from `book.toml`.
+If front matter is missing, the system uses the `default-title` and `default-description`
+from `book.toml`.

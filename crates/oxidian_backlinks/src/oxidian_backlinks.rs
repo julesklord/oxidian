@@ -1,15 +1,15 @@
-use std::path::PathBuf;
-use std::sync::Arc;
 use gpui::{
-    actions, div, Action, App, AsyncWindowContext, Context, Entity, EventEmitter, FocusHandle,
-    Focusable, FontWeight, InteractiveElement as _, IntoElement, ParentElement, Pixels, Render,
-    StatefulInteractiveElement as _, Styled as _, Subscription, WeakEntity, Window,
+    Action, App, AsyncWindowContext, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    FontWeight, InteractiveElement as _, IntoElement, ParentElement, Pixels, Render,
+    StatefulInteractiveElement as _, Styled as _, Subscription, WeakEntity, Window, actions, div,
 };
-use ui::prelude::*;
-use workspace::dock::{DockPosition, Panel, PanelEvent, PanelSizeState};
-use workspace::Workspace;
 use oxidian_core::NoteId;
 use oxidian_vault::{ActiveVault, VaultDatabase};
+use std::path::PathBuf;
+use std::sync::Arc;
+use ui::prelude::*;
+use workspace::Workspace;
+use workspace::dock::{DockPosition, Panel, PanelEvent, PanelSizeState};
 
 actions!(oxidian_backlinks, [ToggleBacklinksPanel]);
 
@@ -60,18 +60,21 @@ impl BacklinksPanel {
             _subscriptions: Vec::new(),
         };
 
-        this._subscriptions.push(cx.subscribe(&workspace, move |this, _, event, cx| {
-            if let workspace::Event::ActiveItemChanged = event {
-                this.active_item_changed(cx);
-            }
-        }));
+        this._subscriptions
+            .push(cx.subscribe(&workspace, move |this, _, event, cx| {
+                if let workspace::Event::ActiveItemChanged = event {
+                    this.active_item_changed(cx);
+                }
+            }));
 
         // Defer initial active item changed to avoid borrowing workspace while it is updating
         let handle = cx.weak_entity();
         cx.defer(move |cx| {
-            handle.update(cx, |this, cx| {
-                this.active_item_changed(cx);
-            }).ok();
+            handle
+                .update(cx, |this, cx| {
+                    this.active_item_changed(cx);
+                })
+                .ok();
         });
 
         this
@@ -88,7 +91,9 @@ impl BacklinksPanel {
     }
 
     fn active_item_changed(&mut self, cx: &mut Context<Self>) {
-        let Some(workspace) = self.workspace.upgrade() else { return; };
+        let Some(workspace) = self.workspace.upgrade() else {
+            return;
+        };
         let workspace = workspace.read(cx);
         let Some(active_item) = workspace.active_item(cx) else {
             self.active_note = None;
@@ -104,8 +109,10 @@ impl BacklinksPanel {
                 let file = buffer.file();
                 if let Some(file) = file {
                     let path = file.path();
-                    if path.extension().map_or(false, |ext| ext == "md") {
-                        if let Some(active_vault) = cx.try_global::<ActiveVault>().and_then(|av| av.0.clone()) {
+                    if path.extension().is_some_and(|ext| ext == "md") {
+                        if let Some(active_vault) =
+                            cx.try_global::<ActiveVault>().and_then(|av| av.0.clone())
+                        {
                             let vault = active_vault.read(cx);
                             let note_id = NoteId::from_relative_path(path.as_unix_str());
                             self.active_note = Some(note_id.clone());
@@ -116,8 +123,15 @@ impl BacklinksPanel {
                                 for (from_note, _alias, line_idx) in db_links {
                                     let from_note_id = NoteId(Arc::from(from_note.as_str()));
                                     if let Some(from_path) = vault.resolve_note(&from_note_id) {
-                                        let snippet = if let Ok(content) = std::fs::read_to_string(from_path) {
-                                            content.lines().nth(line_idx as usize).unwrap_or("").trim().to_string()
+                                        let snippet = if let Ok(content) =
+                                            std::fs::read_to_string(from_path)
+                                        {
+                                            content
+                                                .lines()
+                                                .nth(line_idx as usize)
+                                                .unwrap_or("")
+                                                .trim()
+                                                .to_string()
                                         } else {
                                             "".to_string()
                                         };
@@ -145,7 +159,9 @@ impl BacklinksPanel {
     }
 
     fn open_backlink(&self, backlink: &Backlink, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(workspace) = self.workspace.upgrade() else { return; };
+        let Some(workspace) = self.workspace.upgrade() else {
+            return;
+        };
         let path = backlink.path.clone();
         let line_num = backlink.line;
 
@@ -166,10 +182,12 @@ impl BacklinksPanel {
             let mut results = open_task.await;
             if let Some(Some(Ok(item_handle))) = results.pop() {
                 if let Some(editor) = item_handle.downcast::<editor::Editor>() {
-                    let _ = editor.update_in(cx, |editor, window, cx| {
+                    if let Err(err) = editor.update_in(cx, |editor, window, cx| {
                         let point = text::Point::new(line_num as u32, 0);
                         editor.go_to_singleton_buffer_point(point, window, cx);
-                    });
+                    }) {
+                        log::error!("Oxidian: failed to jump to backlink target: {err}");
+                    }
                 }
             }
         })
@@ -196,8 +214,8 @@ impl Render for BacklinksPanel {
                     .child(
                         Label::new("Backlinks")
                             .weight(FontWeight::BOLD)
-                            .color(Color::Default)
-                    )
+                            .color(Color::Default),
+                    ),
             );
 
         let content = if let Some(ref active_note) = self.active_note {
@@ -211,14 +229,11 @@ impl Render for BacklinksPanel {
                     .h_full()
                     .gap_2()
                     .p_4()
-                    .child(
-                        Label::new("No backlinks found")
-                            .color(Color::Muted)
-                    )
+                    .child(Label::new("No backlinks found").color(Color::Muted))
                     .child(
                         Label::new(format!("No notes link to [[{}]]", active_note))
                             .color(Color::Muted)
-                            .size(LabelSize::Small)
+                            .size(LabelSize::Small),
                     )
             } else {
                 let backlinks_list = self.backlinks.iter().enumerate().map(|(index, backlink)| {
@@ -257,20 +272,20 @@ impl Render for BacklinksPanel {
                                 .child(
                                     Label::new(note_id.to_string())
                                         .weight(FontWeight::SEMIBOLD)
-                                        .color(Color::Default)
+                                        .color(Color::Default),
                                 )
                                 .child(
                                     Label::new(line_str)
                                         .size(LabelSize::Small)
-                                        .color(Color::Muted)
-                                )
+                                        .color(Color::Muted),
+                                ),
                         )
                         .when(!snippet.is_empty(), |this| {
                             this.child(
                                 Label::new(format!("\"{}\"", snippet))
                                     .size(LabelSize::Small)
                                     .color(Color::Muted)
-                                    .italic()
+                                    .italic(),
                             )
                         })
                 });
@@ -293,14 +308,11 @@ impl Render for BacklinksPanel {
                 .gap_2()
                 .p_4()
                 .child(Icon::new(IconName::Link).color(Color::Muted))
-                .child(
-                    Label::new("No active note")
-                        .color(Color::Muted)
-                )
+                .child(Label::new("No active note").color(Color::Muted))
                 .child(
                     Label::new("Open a Markdown note to view its backlinks")
                         .color(Color::Muted)
-                        .size(LabelSize::Small)
+                        .size(LabelSize::Small),
                 )
         };
 
@@ -332,7 +344,12 @@ impl Panel for BacklinksPanel {
         true
     }
 
-    fn set_position(&mut self, position: DockPosition, _window: &mut Window, cx: &mut Context<Self>) {
+    fn set_position(
+        &mut self,
+        position: DockPosition,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.position = position;
         cx.notify();
     }

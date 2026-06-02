@@ -1,15 +1,15 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 use gpui::{
-    actions, div, Action, App, AsyncWindowContext, Context, Entity, EventEmitter, FocusHandle,
-    Focusable, FontWeight, InteractiveElement as _, IntoElement, ParentElement, Pixels, Render,
-    StatefulInteractiveElement as _, Styled as _, Subscription, WeakEntity, Window,
+    Action, App, AsyncWindowContext, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    FontWeight, InteractiveElement as _, IntoElement, ParentElement, Pixels, Render,
+    StatefulInteractiveElement as _, Styled as _, Subscription, WeakEntity, Window, actions, div,
 };
-use ui::prelude::*;
-use workspace::dock::{DockPosition, Panel, PanelEvent, PanelSizeState};
-use workspace::Workspace;
 use oxidian_core::NoteId;
 use oxidian_vault::{ActiveVault, VaultDatabase};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use ui::prelude::*;
+use workspace::Workspace;
+use workspace::dock::{DockPosition, Panel, PanelEvent, PanelSizeState};
 
 actions!(oxidian_frontmatter, [ToggleTagBrowserPanel]);
 
@@ -32,19 +32,19 @@ pub struct TagBrowserPanel {
     workspace: WeakEntity<Workspace>,
     focus_handle: FocusHandle,
     active_tab: MetadataTab,
-    
+
     // Tags data
     tags: Vec<(String, i64)>,
     expanded_tags: HashSet<String>,
     notes_by_tag: HashMap<String, Vec<String>>,
-    
+
     // Properties data
     active_note: Option<NoteId>,
     active_editor: Option<WeakEntity<editor::Editor>>,
     properties: Vec<(String, String)>,
     new_prop_key: String,
     new_prop_val: String,
-    
+
     position: DockPosition,
     active: bool,
     zoomed: bool,
@@ -78,18 +78,21 @@ impl TagBrowserPanel {
             _subscriptions: Vec::new(),
         };
 
-        this._subscriptions.push(cx.subscribe(&workspace, move |this, _, event, cx| {
-            if let workspace::Event::ActiveItemChanged = event {
-                this.active_item_changed(cx);
-            }
-        }));
+        this._subscriptions
+            .push(cx.subscribe(&workspace, move |this, _, event, cx| {
+                if let workspace::Event::ActiveItemChanged = event {
+                    this.active_item_changed(cx);
+                }
+            }));
 
         let handle = cx.weak_entity();
         cx.defer(move |cx| {
-            handle.update(cx, |this, cx| {
-                this.update_tags(cx);
-                this.active_item_changed(cx);
-            }).ok();
+            handle
+                .update(cx, |this, cx| {
+                    this.update_tags(cx);
+                    this.active_item_changed(cx);
+                })
+                .ok();
         });
 
         this
@@ -128,32 +131,39 @@ impl TagBrowserPanel {
     }
 
     fn open_note_by_id(&self, note_id_str: String, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(workspace) = self.workspace.upgrade() else { return; };
-        let Some(active_vault) = cx.try_global::<ActiveVault>().and_then(|av| av.0.clone()) else { return; };
+        let Some(workspace) = self.workspace.upgrade() else {
+            return;
+        };
+        let Some(active_vault) = cx.try_global::<ActiveVault>().and_then(|av| av.0.clone()) else {
+            return;
+        };
         let vault = active_vault.read(cx);
         let note_id = NoteId(Arc::from(note_id_str.as_str()));
         if let Some(path) = vault.resolve_note(&note_id) {
             let path_clone = path.clone();
             workspace.update(cx, |workspace, cx| {
-                workspace.open_paths(
-                    vec![path_clone],
-                    workspace::OpenOptions {
-                        visible: Some(workspace::OpenVisible::All),
-                        ..Default::default()
-                    },
-                    None,
-                    window,
-                    cx,
-                )
-                .detach();
+                workspace
+                    .open_paths(
+                        vec![path_clone],
+                        workspace::OpenOptions {
+                            visible: Some(workspace::OpenVisible::All),
+                            ..Default::default()
+                        },
+                        None,
+                        window,
+                        cx,
+                    )
+                    .detach();
             });
         }
     }
 
     fn active_item_changed(&mut self, cx: &mut Context<Self>) {
         self.update_tags(cx);
-        
-        let Some(workspace) = self.workspace.upgrade() else { return; };
+
+        let Some(workspace) = self.workspace.upgrade() else {
+            return;
+        };
         let workspace = workspace.read(cx);
         let Some(active_item) = workspace.active_item(cx) else {
             self.active_note = None;
@@ -171,10 +181,10 @@ impl TagBrowserPanel {
                 let file = buffer.file();
                 if let Some(file) = file {
                     let path = file.path();
-                    if path.extension().map_or(false, |ext| ext == "md") {
+                    if path.extension().is_some_and(|ext| ext == "md") {
                         let note_id = NoteId::from_relative_path(path.as_unix_str());
                         self.active_note = Some(note_id);
-                        
+
                         let text = buffer.text();
                         self.properties = parse_frontmatter(&text);
                         cx.notify();
@@ -190,9 +200,18 @@ impl TagBrowserPanel {
         cx.notify();
     }
 
-    fn write_properties_to_active_editor(&self, new_props: &[(String, String)], _window: &mut Window, cx: &mut Context<Self>) {
-        let Some(editor_weak) = &self.active_editor else { return; };
-        let Some(editor) = editor_weak.upgrade() else { return; };
+    fn write_properties_to_active_editor(
+        &self,
+        new_props: &[(String, String)],
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(editor_weak) = &self.active_editor else {
+            return;
+        };
+        let Some(editor) = editor_weak.upgrade() else {
+            return;
+        };
 
         editor.update(cx, |editor, cx| {
             let multi_buffer = editor.buffer();
@@ -201,7 +220,7 @@ impl TagBrowserPanel {
                     buffer_handle.update(cx, |buffer, cx| {
                         let text = buffer.text();
                         let range = find_frontmatter_range(&text);
-                        
+
                         let mut new_yaml = String::new();
                         if !new_props.is_empty() {
                             new_yaml.push_str("---\n");
@@ -233,12 +252,14 @@ impl TagBrowserPanel {
     fn add_property(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let key = self.new_prop_key.trim().to_string();
         let val = self.new_prop_val.trim().to_string();
-        if key.is_empty() { return; }
+        if !is_valid_property_key(&key) {
+            return;
+        }
 
         let mut new_props = self.properties.clone();
         new_props.retain(|(k, _)| k != &key);
         new_props.push((key, val));
-        
+
         self.write_properties_to_active_editor(&new_props, window, cx);
         self.properties = new_props;
         self.new_prop_key.clear();
@@ -259,25 +280,48 @@ fn parse_frontmatter(content: &str) -> Vec<(String, String)> {
             continue;
         }
         first_line = false;
-        if !in_frontmatter { break; }
-        if trimmed == "---" { break; }
+        if !in_frontmatter {
+            break;
+        }
+        if trimmed == "---" {
+            break;
+        }
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
         if let Some((key, val)) = trimmed.split_once(':') {
-            properties.push((key.trim().to_string(), val.trim().to_string()));
+            let key = key.trim();
+            if is_valid_property_key(key) {
+                properties.push((key.to_string(), val.trim().to_string()));
+            }
         }
     }
     properties
 }
 
 fn find_frontmatter_range(text: &str) -> Option<std::ops::Range<usize>> {
-    if text.starts_with("---\n") || text.starts_with("---\r\n") {
-        let delimiter = if text.contains("\r\n") { "\r\n" } else { "\n" };
-        let start_len = 3 + delimiter.len();
-        if let Some(end_offset) = text[start_len..].find(&format!("---{}", delimiter)) {
-            let end_abs = start_len + end_offset + 3 + delimiter.len();
-            return Some(0..end_abs);
-        }
+    let delimiter = if text.starts_with("---\r\n") {
+        "\r\n"
+    } else if text.starts_with("---\n") {
+        "\n"
+    } else {
+        return None;
+    };
+
+    let start_len = 3 + delimiter.len();
+    if let Some(end_offset) = text[start_len..].find(&format!("---{delimiter}")) {
+        let end_abs = start_len + end_offset + 3 + delimiter.len();
+        return Some(0..end_abs);
     }
+
     None
+}
+
+fn is_valid_property_key(key: &str) -> bool {
+    !key.is_empty()
+        && key
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
 }
 
 impl Render for TagBrowserPanel {
@@ -299,8 +343,8 @@ impl Render for TagBrowserPanel {
                     .child(
                         Label::new("Oxidian Notes")
                             .weight(FontWeight::BOLD)
-                            .color(Color::Default)
-                    )
+                            .color(Color::Default),
+                    ),
             );
 
         let tabs = div()
@@ -317,13 +361,17 @@ impl Render for TagBrowserPanel {
                     .px_2()
                     .py_0p5()
                     .rounded_md()
-                    .when(self.active_tab == MetadataTab::Tags, |s| s.bg(cx.theme().colors().element_active))
-                    .when(self.active_tab != MetadataTab::Tags, |s| s.hover(|style| style.bg(cx.theme().colors().element_hover)))
+                    .when(self.active_tab == MetadataTab::Tags, |s| {
+                        s.bg(cx.theme().colors().element_active)
+                    })
+                    .when(self.active_tab != MetadataTab::Tags, |s| {
+                        s.hover(|style| style.bg(cx.theme().colors().element_hover))
+                    })
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.active_tab = MetadataTab::Tags;
                         this.update_tags(cx);
                     }))
-                    .child(Label::new("Tags").size(LabelSize::Small))
+                    .child(Label::new("Tags").size(LabelSize::Small)),
             )
             .child(
                 div()
@@ -332,13 +380,17 @@ impl Render for TagBrowserPanel {
                     .px_2()
                     .py_0p5()
                     .rounded_md()
-                    .when(self.active_tab == MetadataTab::Properties, |s| s.bg(cx.theme().colors().element_active))
-                    .when(self.active_tab != MetadataTab::Properties, |s| s.hover(|style| style.bg(cx.theme().colors().element_hover)))
+                    .when(self.active_tab == MetadataTab::Properties, |s| {
+                        s.bg(cx.theme().colors().element_active)
+                    })
+                    .when(self.active_tab != MetadataTab::Properties, |s| {
+                        s.hover(|style| style.bg(cx.theme().colors().element_hover))
+                    })
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.active_tab = MetadataTab::Properties;
                         this.active_item_changed(cx);
                     }))
-                    .child(Label::new("Properties").size(LabelSize::Small))
+                    .child(Label::new("Properties").size(LabelSize::Small)),
             );
 
         let content = match self.active_tab {
@@ -356,7 +408,7 @@ impl Render for TagBrowserPanel {
                     let tag_elements = self.tags.iter().enumerate().map(|(idx, (tag, count))| {
                         let is_expanded = self.expanded_tags.contains(tag);
                         let tag_clone = tag.clone();
-                        
+
                         let tag_header = div()
                             .id(("tag-header", idx))
                             .flex()
@@ -385,14 +437,14 @@ impl Render for TagBrowserPanel {
                                             IconName::ChevronRight
                                         })
                                         .color(Color::Muted)
-                                        .size(IconSize::XSmall)
+                                        .size(IconSize::XSmall),
                                     )
-                                    .child(Label::new(format!("#{}", tag)).color(Color::Default))
+                                    .child(Label::new(format!("#{}", tag)).color(Color::Default)),
                             )
                             .child(
                                 Label::new(format!("{}", count))
                                     .size(LabelSize::Small)
-                                    .color(Color::Muted)
+                                    .color(Color::Muted),
                             );
 
                         let notes_list = if is_expanded {
@@ -422,14 +474,20 @@ impl Render for TagBrowserPanel {
                                             .py_0p5()
                                             .rounded_md()
                                             .cursor_pointer()
-                                            .hover(|style| style.bg(cx.theme().colors().element_hover))
+                                            .hover(|style| {
+                                                style.bg(cx.theme().colors().element_hover)
+                                            })
                                             .on_click(cx.listener(move |this, _, window, cx| {
-                                                this.open_note_by_id(note_path_clone.clone(), window, cx);
+                                                this.open_note_by_id(
+                                                    note_path_clone.clone(),
+                                                    window,
+                                                    cx,
+                                                );
                                             }))
                                             .child(
                                                 Label::new(note_title)
                                                     .size(LabelSize::Small)
-                                                    .color(Color::Muted)
+                                                    .color(Color::Muted),
                                             )
                                     }))
                             } else {
@@ -447,12 +505,7 @@ impl Render for TagBrowserPanel {
                             .child(notes_list)
                     });
 
-                    div()
-                        .flex()
-                        .flex_col()
-                        .p_2()
-                        .gap_1()
-                        .children(tag_elements)
+                    div().flex().flex_col().p_2().gap_1().children(tag_elements)
                 }
             }
             MetadataTab::Properties => {
@@ -464,24 +517,29 @@ impl Render for TagBrowserPanel {
                         .justify_center()
                         .h_full()
                         .p_4()
-                        .child(Label::new("Open a Markdown note to view properties").color(Color::Muted))
-                } else {
-                    let note_title = self.active_note.as_ref().map(|n| n.as_str().replace(".md", "")).unwrap_or_default();
-                    
-                    let properties_header = div()
-                        .px_3()
-                        .py_2()
                         .child(
-                            Label::new(note_title)
-                                .weight(FontWeight::SEMIBOLD)
-                                .color(Color::Default)
-                        );
+                            Label::new("Open a Markdown note to view properties")
+                                .color(Color::Muted),
+                        )
+                } else {
+                    let note_title = self
+                        .active_note
+                        .as_ref()
+                        .map(|n| n.as_str().replace(".md", ""))
+                        .unwrap_or_default();
+
+                    let properties_header = div().px_3().py_2().child(
+                        Label::new(note_title)
+                            .weight(FontWeight::SEMIBOLD)
+                            .color(Color::Default),
+                    );
 
                     let list = if self.properties.is_empty() {
-                        div()
-                            .px_3()
-                            .py_2()
-                            .child(Label::new("No frontmatter properties").size(LabelSize::Small).color(Color::Muted))
+                        div().px_3().py_2().child(
+                            Label::new("No frontmatter properties")
+                                .size(LabelSize::Small)
+                                .color(Color::Muted),
+                        )
                     } else {
                         let prop_rows = self.properties.iter().enumerate().map(|(idx, (k, v))| {
                             let k_clone = k.clone();
@@ -498,14 +556,22 @@ impl Render for TagBrowserPanel {
                                     div()
                                         .flex()
                                         .flex_col()
-                                        .child(Label::new(k.clone()).size(LabelSize::Small).weight(FontWeight::SEMIBOLD))
-                                        .child(Label::new(v.clone()).size(LabelSize::Small).color(Color::Muted))
+                                        .child(
+                                            Label::new(k.clone())
+                                                .size(LabelSize::Small)
+                                                .weight(FontWeight::SEMIBOLD),
+                                        )
+                                        .child(
+                                            Label::new(v.clone())
+                                                .size(LabelSize::Small)
+                                                .color(Color::Muted),
+                                        ),
                                 )
                                 .child(
                                     IconButton::new(("delete-prop", idx), IconName::Trash)
                                         .on_click(cx.listener(move |this, _, window, cx| {
                                             this.delete_property(k_clone.clone(), window, cx);
-                                        }))
+                                        })),
                                 )
                         });
 
@@ -521,84 +587,89 @@ impl Render for TagBrowserPanel {
                         .border_t_1()
                         .border_color(cx.theme().colors().border)
                         .child(
-                            Label::new("Add Property").size(LabelSize::Small).weight(FontWeight::SEMIBOLD)
+                            Label::new("Add Property")
+                                .size(LabelSize::Small)
+                                .weight(FontWeight::SEMIBOLD),
                         )
                         .child(
                             div()
                                 .flex()
                                 .gap_2()
                                 .child(
-                                    div()
-                                        .flex_1()
-                                        .child(
-                                            Label::new("Key").size(LabelSize::XSmall).color(Color::Muted)
-                                        )
+                                    div().flex_1().child(
+                                        Label::new("Key")
+                                            .size(LabelSize::XSmall)
+                                            .color(Color::Muted),
+                                    ),
                                 )
                                 .child(
-                                    div()
-                                        .flex_1()
-                                        .child(
-                                            Label::new("Value").size(LabelSize::XSmall).color(Color::Muted)
-                                        )
-                                )
+                                    div().flex_1().child(
+                                        Label::new("Value")
+                                            .size(LabelSize::XSmall)
+                                            .color(Color::Muted),
+                                    ),
+                                ),
                         )
                         .child(
                             // Due to not compiling TextInput easily in variable Zed editions,
                             // we provide custom quick tags addition visual buttons or simple edit triggers.
-                            div()
-                                .flex()
-                                .flex_col()
-                                .gap_1()
-                                .child(
-                                    div()
-                                        .flex()
-                                        .gap_2()
-                                        .child(
-                                            div()
-                                                .id("add-tags-prop-btn")
-                                                .cursor_pointer()
-                                                .px_2()
-                                                .py_1()
-                                                .rounded_md()
-                                                .bg(cx.theme().colors().element_hover)
-                                                .on_click(cx.listener(|this, _, window, cx| {
-                                                    this.new_prop_key = "tags".to_string();
-                                                    this.new_prop_val = "[]".to_string();
-                                                    this.add_property(window, cx);
-                                                }))
-                                                .child(Label::new("+ tags: []").size(LabelSize::XSmall))
-                                        )
-                                        .child(
-                                            div()
-                                                .id("add-status-prop-btn")
-                                                .cursor_pointer()
-                                                .px_2()
-                                                .py_1()
-                                                .rounded_md()
-                                                .bg(cx.theme().colors().element_hover)
-                                                .on_click(cx.listener(|this, _, window, cx| {
-                                                    this.new_prop_key = "status".to_string();
-                                                    this.new_prop_val = "active".to_string();
-                                                    this.add_property(window, cx);
-                                                }))
-                                                .child(Label::new("+ status: active").size(LabelSize::XSmall))
-                                        )
-                                        .child(
-                                            div()
-                                                .id("add-author-prop-btn")
-                                                .cursor_pointer()
-                                                .px_2()
-                                                .py_1()
-                                                .rounded_md()
-                                                .bg(cx.theme().colors().element_hover)
-                                                .on_click(cx.listener(|this, _, window, cx| {
-                                                    this.new_prop_key = "author".to_string();
-                                                    this.new_prop_val = "Me".to_string();
-                                                    this.add_property(window, cx);
-                                                }))
-                                                .child(Label::new("+ author: Me").size(LabelSize::XSmall))
-                                        )
-                                )
+                            div().flex().flex_col().gap_1().child(
+                                div()
+                                    .flex()
+                                    .gap_2()
+                                    .child(
+                                        div()
+                                            .id("add-tags-prop-btn")
+                                            .cursor_pointer()
+                                            .px_2()
+                                            .py_1()
+                                            .rounded_md()
+                                            .bg(cx.theme().colors().element_hover)
+                                            .on_click(cx.listener(|this, _, window, cx| {
+                                                this.new_prop_key = "tags".to_string();
+                                                this.new_prop_val = "[]".to_string();
+                                                this.add_property(window, cx);
+                                            }))
+                                            .child(
+                                                Label::new("+ tags: []").size(LabelSize::XSmall),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .id("add-status-prop-btn")
+                                            .cursor_pointer()
+                                            .px_2()
+                                            .py_1()
+                                            .rounded_md()
+                                            .bg(cx.theme().colors().element_hover)
+                                            .on_click(cx.listener(|this, _, window, cx| {
+                                                this.new_prop_key = "status".to_string();
+                                                this.new_prop_val = "active".to_string();
+                                                this.add_property(window, cx);
+                                            }))
+                                            .child(
+                                                Label::new("+ status: active")
+                                                    .size(LabelSize::XSmall),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .id("add-author-prop-btn")
+                                            .cursor_pointer()
+                                            .px_2()
+                                            .py_1()
+                                            .rounded_md()
+                                            .bg(cx.theme().colors().element_hover)
+                                            .on_click(cx.listener(|this, _, window, cx| {
+                                                this.new_prop_key = "author".to_string();
+                                                this.new_prop_val = "Me".to_string();
+                                                this.add_property(window, cx);
+                                            }))
+                                            .child(
+                                                Label::new("+ author: Me").size(LabelSize::XSmall),
+                                            ),
+                                    ),
+                            ),
                         );
 
                     div()
@@ -625,7 +696,7 @@ impl Render for TagBrowserPanel {
                     .id("tag-browser-scroll-container")
                     .flex_1()
                     .overflow_y_scroll()
-                    .child(content)
+                    .child(content),
             )
     }
 }
@@ -647,7 +718,12 @@ impl Panel for TagBrowserPanel {
         true
     }
 
-    fn set_position(&mut self, position: DockPosition, _window: &mut Window, cx: &mut Context<Self>) {
+    fn set_position(
+        &mut self,
+        position: DockPosition,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.position = position;
         cx.notify();
     }
@@ -725,12 +801,20 @@ mod tests {
 
     #[test]
     fn test_parse_frontmatter() {
-        let content = "---\ntitle: My Note\ntags: [rust, zed]\nstatus: active\n---\n# Header\nBody content";
+        let content =
+            "---\ntitle: My Note\ntags: [rust, zed]\nstatus: active\n---\n# Header\nBody content";
         let props = parse_frontmatter(content);
         assert_eq!(props.len(), 3);
         assert_eq!(props[0], ("title".to_string(), "My Note".to_string()));
         assert_eq!(props[1], ("tags".to_string(), "[rust, zed]".to_string()));
         assert_eq!(props[2], ("status".to_string(), "active".to_string()));
+    }
+
+    #[test]
+    fn test_parse_frontmatter_ignores_invalid_keys() {
+        let content = "---\nvalid-key: ok\nbad key: nope\n# comment\n---\nBody";
+        let props = parse_frontmatter(content);
+        assert_eq!(props, vec![("valid-key".to_string(), "ok".to_string())]);
     }
 
     #[test]
@@ -740,5 +824,12 @@ mod tests {
         assert!(range.is_some());
         let r = range.unwrap();
         assert_eq!(&content[r], "---\ntitle: Hello\n---\n");
+    }
+
+    #[test]
+    fn test_find_frontmatter_range_handles_crlf() {
+        let content = "---\r\ntitle: Hello\r\n---\r\nBody";
+        let range = find_frontmatter_range(content).expect("frontmatter range");
+        assert_eq!(&content[range], "---\r\ntitle: Hello\r\n---\r\n");
     }
 }

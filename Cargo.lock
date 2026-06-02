@@ -10304,6 +10304,7 @@ dependencies = [
  "log",
  "lsp",
  "node_runtime",
+ "oxidian_core",
  "parking_lot",
  "pet",
  "pet-conda",
@@ -10321,6 +10322,7 @@ dependencies = [
  "serde_json",
  "serde_json_lenient",
  "settings",
+ "sha2",
  "smallvec",
  "smol",
  "snippet",
@@ -12886,7 +12888,7 @@ checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
 
 [[package]]
 name = "oxidian"
-version = "1.6.0"
+version = "0.1.0-pre-alpha"
 dependencies = [
  "acp_thread",
  "acp_tools",
@@ -13069,6 +13071,7 @@ dependencies = [
  "collections",
  "editor",
  "gpui",
+ "log",
  "oxidian_core",
  "oxidian_vault",
  "text",
@@ -13092,6 +13095,7 @@ dependencies = [
  "collections",
  "editor",
  "gpui",
+ "log",
  "oxidian_core",
  "oxidian_vault",
  "text",

@@ -22,6 +22,7 @@ mod css;
 mod eslint;
 mod go;
 mod json;
+mod marksman;
 mod package_json;
 mod python;
 mod rust;
@@ -84,6 +85,7 @@ pub fn init(languages: Arc<LanguageRegistry>, fs: Arc<dyn Fs>, node: NodeRuntime
     ));
     let vtsls_adapter = Arc::new(vtsls::VtslsLspAdapter::new(node.clone(), fs.clone()));
     let yaml_lsp_adapter = Arc::new(yaml::YamlLspAdapter::new(node));
+    let marksman_lsp_adapter = Arc::new(marksman::MarksmanLspAdapter);
 
     let built_in_languages = [
         LanguageInfo {
@@ -146,12 +148,12 @@ pub fn init(languages: Arc<LanguageRegistry>, fs: Arc<dyn Fs>, node: NodeRuntime
         },
         LanguageInfo {
             name: "markdown",
-            adapters: vec![],
+            adapters: vec![marksman_lsp_adapter.clone()],
             ..Default::default()
         },
         LanguageInfo {
             name: "markdown-inline",
-            adapters: vec![],
+            adapters: vec![marksman_lsp_adapter],
             ..Default::default()
         },
         LanguageInfo {

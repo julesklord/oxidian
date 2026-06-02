@@ -1,14 +1,14 @@
-use std::collections::HashSet;
 use chrono::{Datelike, Local, NaiveDate};
 use gpui::{
-    actions, div, Action, App, AsyncWindowContext, Context, Entity, EventEmitter, FocusHandle,
-    Focusable, FontWeight, InteractiveElement as _, IntoElement, ParentElement, Pixels, Render,
-    StatefulInteractiveElement as _, Styled as _, Subscription, WeakEntity, Window,
+    Action, App, AsyncWindowContext, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    FontWeight, InteractiveElement as _, IntoElement, ParentElement, Pixels, Render,
+    StatefulInteractiveElement as _, Styled as _, Subscription, WeakEntity, Window, actions, div,
 };
-use ui::prelude::*;
-use workspace::dock::{DockPosition, Panel, PanelEvent, PanelSizeState};
-use workspace::Workspace;
 use oxidian_vault::ActiveVault;
+use std::collections::HashSet;
+use ui::prelude::*;
+use workspace::Workspace;
+use workspace::dock::{DockPosition, Panel, PanelEvent, PanelSizeState};
 
 actions!(oxidian_daily, [ToggleDailyNotesPanel, OpenTodayNote]);
 
@@ -55,9 +55,9 @@ pub fn open_daily_note_for_date(
 
     let template_path = templates_dir.join("daily.md");
 
-    let entry_path_clone = entry_path.clone();
+    let entry_path_clone = entry_path;
     let date_clone = date;
-    let format_str_clone = format_str.clone();
+    let format_str_clone = format_str;
 
     let create_task = cx.background_spawn(async move {
         if !entry_path_clone.exists() {
@@ -67,8 +67,11 @@ pub fn open_daily_note_for_date(
 
             let mut content = String::new();
             if template_path.exists() {
-                if let Ok(tpl) = std::fs::read_to_string(&template_path) {
-                    content = tpl;
+                match std::fs::read_to_string(&template_path) {
+                    Ok(tpl) => content = tpl,
+                    Err(err) => log::warn!(
+                        "Oxidian: failed to read daily note template {template_path:?}: {err}"
+                    ),
                 }
             }
 
@@ -95,19 +98,22 @@ pub fn open_daily_note_for_date(
         .spawn(cx, async move |cx| {
             if let Ok(path) = create_task.await {
                 if let Some(workspace) = workspace.upgrade() {
-                    let _ = workspace.update_in(cx, |workspace, window, cx| {
-                        workspace.open_paths(
-                            vec![path],
-                            workspace::OpenOptions {
-                                visible: Some(workspace::OpenVisible::All),
-                                ..Default::default()
-                            },
-                            None,
-                            window,
-                            cx,
-                        )
-                        .detach();
-                    });
+                    if let Err(err) = workspace.update_in(cx, |workspace, window, cx| {
+                        workspace
+                            .open_paths(
+                                vec![path],
+                                workspace::OpenOptions {
+                                    visible: Some(workspace::OpenVisible::All),
+                                    ..Default::default()
+                                },
+                                None,
+                                window,
+                                cx,
+                            )
+                            .detach();
+                    }) {
+                        log::error!("Oxidian: failed to open daily note: {err}");
+                    }
                 }
             }
             anyhow::Ok(())
@@ -151,18 +157,21 @@ impl DailyNotesPanel {
             _subscriptions: Vec::new(),
         };
 
-        this._subscriptions.push(cx.subscribe(&workspace, move |this, _, event, cx| {
-            if let workspace::Event::ActiveItemChanged = event {
-                this.update_existing_notes(cx);
-            }
-        }));
+        this._subscriptions
+            .push(cx.subscribe(&workspace, move |this, _, event, cx| {
+                if let workspace::Event::ActiveItemChanged = event {
+                    this.update_existing_notes(cx);
+                }
+            }));
 
         // Defer initial update to avoid borrowing workspace while it is updating
         let handle = cx.weak_entity();
         cx.defer(move |cx| {
-            handle.update(cx, |this, cx| {
-                this.update_existing_notes(cx);
-            }).ok();
+            handle
+                .update(cx, |this, cx| {
+                    this.update_existing_notes(cx);
+                })
+                .ok();
         });
 
         this
@@ -188,24 +197,27 @@ impl DailyNotesPanel {
         let format_str = vault.config.daily_notes_format.clone();
 
         cx.spawn(async move |this, cx| {
-            let existing_dates = cx.background_spawn(async move {
-                let mut dates: HashSet<NaiveDate> = HashSet::new();
-                let chrono_format = convert_obsidian_format_to_chrono(&format_str);
-                if let Ok(entries) = std::fs::read_dir(daily_dir) {
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if path.extension().map_or(false, |ext| ext == "md") {
-                            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                                if let Ok(parsed_date) = NaiveDate::parse_from_str(stem, &chrono_format) {
-                                    dates.insert(parsed_date);
+            let existing_dates = cx
+                .background_spawn(async move {
+                    let mut dates: HashSet<NaiveDate> = HashSet::new();
+                    let chrono_format = convert_obsidian_format_to_chrono(&format_str);
+                    if let Ok(entries) = std::fs::read_dir(daily_dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            if path.extension().is_some_and(|ext| ext == "md") {
+                                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                                    if let Ok(parsed_date) =
+                                        NaiveDate::parse_from_str(stem, &chrono_format)
+                                    {
+                                        dates.insert(parsed_date);
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                dates
-            })
-            .await;
+                    dates
+                })
+                .await;
 
             this.update(cx, |this, cx| {
                 this.notes_with_daily_dates = existing_dates;
@@ -258,6 +270,52 @@ fn days_in_month(year: i32, month: u32) -> u32 {
     }
 }
 
+fn calendar_cells(year: i32, month: u32) -> Vec<(NaiveDate, bool)> {
+    let Some(first_day) = NaiveDate::from_ymd_opt(year, month, 1) else {
+        return Vec::new();
+    };
+
+    let weekday_num = first_day.weekday().number_from_monday();
+    let prev_month_days = weekday_num - 1;
+
+    let (prev_year, prev_month) = if month == 1 {
+        (year - 1, 12)
+    } else {
+        (year, month - 1)
+    };
+    let prev_month_len = days_in_month(prev_year, prev_month);
+
+    let mut cells = Vec::with_capacity(42);
+
+    for i in (0..prev_month_days).rev() {
+        let day = prev_month_len - i;
+        if let Some(date) = NaiveDate::from_ymd_opt(prev_year, prev_month, day) {
+            cells.push((date, false));
+        }
+    }
+
+    let current_month_len = days_in_month(year, month);
+    for day in 1..=current_month_len {
+        if let Some(date) = NaiveDate::from_ymd_opt(year, month, day) {
+            cells.push((date, true));
+        }
+    }
+
+    let remaining = 42usize.saturating_sub(cells.len());
+    let (next_year, next_month) = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
+    for day in 1..=remaining {
+        if let Some(date) = NaiveDate::from_ymd_opt(next_year, next_month, day as u32) {
+            cells.push((date, false));
+        }
+    }
+
+    cells
+}
+
 impl Render for DailyNotesPanel {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let month_name = match self.current_month {
@@ -295,8 +353,8 @@ impl Render for DailyNotesPanel {
                     .child(
                         Label::new("Daily Notes")
                             .weight(FontWeight::BOLD)
-                            .color(Color::Default)
-                    )
+                            .color(Color::Default),
+                    ),
             );
 
         let navigation_header = div()
@@ -308,7 +366,7 @@ impl Render for DailyNotesPanel {
             .child(
                 Label::new(month_title)
                     .weight(FontWeight::SEMIBOLD)
-                    .color(Color::Default)
+                    .color(Color::Default),
             )
             .child(
                 div()
@@ -316,111 +374,91 @@ impl Render for DailyNotesPanel {
                     .items_center()
                     .gap_1()
                     .child(
-                        IconButton::new("prev-month", IconName::ChevronLeft)
-                            .on_click(cx.listener(|this, _, _, cx| {
+                        IconButton::new("prev-month", IconName::ChevronLeft).on_click(cx.listener(
+                            |this, _, _, cx| {
                                 this.prev_month(cx);
-                            }))
+                            },
+                        )),
                     )
                     .child(
-                        IconButton::new("next-month", IconName::ChevronRight)
-                            .on_click(cx.listener(|this, _, _, cx| {
+                        IconButton::new("next-month", IconName::ChevronRight).on_click(
+                            cx.listener(|this, _, _, cx| {
                                 this.next_month(cx);
-                            }))
-                    )
+                            }),
+                        ),
+                    ),
             );
 
-        // Generate grid cells
-        let first_day = NaiveDate::from_ymd_opt(self.current_year, self.current_month, 1).unwrap();
-        let weekday_num = first_day.weekday().number_from_monday(); // 1..=7
-        let prev_month_days = weekday_num - 1;
+        let cells = calendar_cells(self.current_year, self.current_month);
 
-        let (prev_year, prev_month) = if self.current_month == 1 {
-            (self.current_year - 1, 12)
-        } else {
-            (self.current_year, self.current_month - 1)
-        };
-        let prev_month_len = days_in_month(prev_year, prev_month);
-
-        let mut cells = Vec::new();
-
-        for i in (0..prev_month_days).rev() {
-            let day = prev_month_len - i;
-            let date = NaiveDate::from_ymd_opt(prev_year, prev_month, day).unwrap();
-            cells.push((date, false));
-        }
-
-        let current_month_len = days_in_month(self.current_year, self.current_month);
-        for day in 1..=current_month_len {
-            let date = NaiveDate::from_ymd_opt(self.current_year, self.current_month, day).unwrap();
-            cells.push((date, true));
-        }
-
-        let remaining = 42 - cells.len();
-        let (next_year, next_month) = if self.current_month == 12 {
-            (self.current_year + 1, 1)
-        } else {
-            (self.current_year, self.current_month + 1)
-        };
-        for day in 1..=remaining {
-            let date = NaiveDate::from_ymd_opt(next_year, next_month, day as u32).unwrap();
-            cells.push((date, false));
-        }
-
-        let weekdays_header = div()
-            .grid_cols(7)
-            .gap_1()
-            .px_3()
-            .py_1()
-            .children(["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].iter().map(|day| {
-                div()
-                    .flex()
-                    .justify_center()
-                    .child(
-                        Label::new(*day)
-                            .size(LabelSize::XSmall)
-                            .color(Color::Muted)
-                    )
-            }));
+        let weekdays_header = div().grid_cols(7).gap_1().px_3().py_1().children(
+            ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+                .iter()
+                .map(|day| {
+                    div()
+                        .flex()
+                        .justify_center()
+                        .child(Label::new(*day).size(LabelSize::XSmall).color(Color::Muted))
+                }),
+        );
 
         let today = Local::now().naive_local().date();
 
-        let cells_views = cells.into_iter().enumerate().map(|(idx, (date, is_current))| {
-            let has_note = self.notes_with_daily_dates.contains(&date);
-            let is_today = date == today;
-            let is_selected = date == self.selected_date;
+        let cells_views = cells
+            .into_iter()
+            .enumerate()
+            .map(|(idx, (date, is_current))| {
+                let has_note = self.notes_with_daily_dates.contains(&date);
+                let is_today = date == today;
+                let is_selected = date == self.selected_date;
 
-            div()
-                .id(("day", idx))
-                .flex()
-                .flex_col()
-                .items_center()
-                .justify_center()
-                .aspect_ratio(1.0)
-                .rounded_md()
-                .cursor_pointer()
-                .when(!is_current, |s| s.opacity(0.4))
-                .when(is_today, |s| s.border_1().border_color(cx.theme().colors().element_active))
-                .when(is_selected, |s| s.bg(cx.theme().colors().element_active))
-                .when(!is_selected && is_current, |s| s.hover(|style| style.bg(cx.theme().colors().element_hover)))
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    this.select_day(date, window, cx);
-                }))
-                .child(
-                    Label::new(format!("{}", date.day()))
-                        .size(LabelSize::Small)
-                        .weight(if has_note || is_selected { FontWeight::BOLD } else { FontWeight::NORMAL })
-                        .color(if is_selected { Color::Default } else if has_note { Color::Default } else { Color::Muted })
-                )
-                .when(has_note, |this| {
-                    this.child(
-                        div()
-                            .w(px(3.0))
-                            .h(px(3.0))
-                            .rounded_full()
-                            .bg(cx.theme().colors().element_active)
+                div()
+                    .id(("day", idx))
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .justify_center()
+                    .aspect_ratio(1.0)
+                    .rounded_md()
+                    .cursor_pointer()
+                    .when(!is_current, |s| s.opacity(0.4))
+                    .when(is_today, |s| {
+                        s.border_1()
+                            .border_color(cx.theme().colors().element_active)
+                    })
+                    .when(is_selected, |s| s.bg(cx.theme().colors().element_active))
+                    .when(!is_selected && is_current, |s| {
+                        s.hover(|style| style.bg(cx.theme().colors().element_hover))
+                    })
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.select_day(date, window, cx);
+                    }))
+                    .child(
+                        Label::new(format!("{}", date.day()))
+                            .size(LabelSize::Small)
+                            .weight(if has_note || is_selected {
+                                FontWeight::BOLD
+                            } else {
+                                FontWeight::NORMAL
+                            })
+                            .color(if is_selected {
+                                Color::Default
+                            } else if has_note {
+                                Color::Default
+                            } else {
+                                Color::Muted
+                            }),
                     )
-                })
-        });
+                    .when(has_note, |this| {
+                        this.child(
+                            div()
+                                .w(px(3.0))
+                                .h(px(3.0))
+                                .rounded_full()
+                                .bg(cx.theme().colors().element_active),
+                        )
+                    })
+            });
 
         let grid = div()
             .id("calendar-grid")
@@ -461,7 +499,12 @@ impl Panel for DailyNotesPanel {
         true
     }
 
-    fn set_position(&mut self, position: DockPosition, _window: &mut Window, cx: &mut Context<Self>) {
+    fn set_position(
+        &mut self,
+        position: DockPosition,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.position = position;
         cx.notify();
     }
@@ -549,5 +592,18 @@ mod tests {
     fn test_obsidian_format_conversion() {
         assert_eq!(convert_obsidian_format_to_chrono("YYYY-MM-DD"), "%Y-%m-%d");
         assert_eq!(convert_obsidian_format_to_chrono("YYYY/MM/DD"), "%Y/%m/%d");
+    }
+
+    #[test]
+    fn test_calendar_cells_has_stable_six_week_grid() {
+        let cells = calendar_cells(2026, 6);
+        assert_eq!(cells.len(), 42);
+        assert_eq!(cells[0].0, NaiveDate::from_ymd_opt(2026, 6, 1).unwrap());
+        assert!(cells[0].1);
+    }
+
+    #[test]
+    fn test_calendar_cells_handles_invalid_month() {
+        assert!(calendar_cells(2026, 13).is_empty());
     }
 }

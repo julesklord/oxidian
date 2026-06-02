@@ -987,14 +987,18 @@ impl Editor {
                 let buffer_point = head_anchor.to_point(&buffer_snapshot);
                 let row = buffer_point.row;
                 let line_len = buffer_snapshot.line_len(row);
-                let line_text: String = buffer_snapshot.text_for_range(Point::new(row, 0)..Point::new(row, line_len)).collect();
+                let line_text: String = buffer_snapshot
+                    .text_for_range(Point::new(row, 0)..Point::new(row, line_len))
+                    .collect();
                 let col = buffer_point.column as usize;
 
                 if let Some(target) = oxidian_core::find_wiki_link_at_column(&line_text, col) {
                     let parsed_link = oxidian_core::WikiLink::parse(&target);
                     let target_name = parsed_link.target.to_string();
 
-                    let resolver_fn = cx.try_global::<oxidian_core::WikiLinkResolver>().map(|r| r.0.clone());
+                    let resolver_fn = cx
+                        .try_global::<oxidian_core::WikiLinkResolver>()
+                        .map(|r| r.0.clone());
                     if let Some(resolve_fn) = resolver_fn {
                         if let Some(resolved_path) = resolve_fn(&target_name, window, cx) {
                             if let Some(workspace) = self.workspace() {
@@ -1017,21 +1021,33 @@ impl Editor {
                                             if let Some(editor) = item_handle.downcast::<Editor>() {
                                                 editor.update_in(cx, |editor, window, cx| {
                                                     let heading_str = heading.to_string();
-                                                    let buffer_snapshot = editor.buffer().read(cx).snapshot(cx);
+                                                    let buffer_snapshot =
+                                                        editor.buffer().read(cx).snapshot(cx);
                                                     let max_row = buffer_snapshot.max_point().row;
                                                     let mut target_point = None;
                                                     for row_idx in 0..=max_row {
                                                         let row_point = Point::new(row_idx, 0);
-                                                        let line_len = buffer_snapshot.line_len(multi_buffer::MultiBufferRow(row_idx));
-                                                        let line_text: String = buffer_snapshot.text_for_range(row_point..Point::new(row_idx, line_len)).collect();
+                                                        let line_len = buffer_snapshot.line_len(
+                                                            multi_buffer::MultiBufferRow(row_idx),
+                                                        );
+                                                        let line_text: String = buffer_snapshot
+                                                            .text_for_range(
+                                                                row_point
+                                                                    ..Point::new(row_idx, line_len),
+                                                            )
+                                                            .collect();
                                                         let trimmed = line_text.trim();
-                                                        if trimmed.starts_with('#') && trimmed.contains(&heading_str) {
+                                                        if trimmed.starts_with('#')
+                                                            && trimmed.contains(&heading_str)
+                                                        {
                                                             target_point = Some(row_point);
                                                             break;
                                                         }
                                                     }
                                                     if let Some(p) = target_point {
-                                                        editor.go_to_singleton_buffer_point(p, window, cx);
+                                                        editor.go_to_singleton_buffer_point(
+                                                            p, window, cx,
+                                                        );
                                                     }
                                                 })?;
                                             }

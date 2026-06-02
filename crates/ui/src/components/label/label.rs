@@ -366,7 +366,9 @@ impl Component for Label {
                         vec![
                             single_example("Default", Label::new("Project Explorer").into_any_element()),
                             single_example("Small", Label::new("File: main.rs").size(LabelSize::Small).into_any_element()),
-                            single_example("Large", Label::new("Welcome to Zed").size(LabelSize::Large).into_any_element()),
+// OXIDIAN BEGIN
+                            single_example("Large", Label::new("Welcome to Oxidian").size(LabelSize::Large).into_any_element()),
+// OXIDIAN END
                         ],
                     ),
                     example_group_with_title(

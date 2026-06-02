@@ -290,6 +290,43 @@ pub fn init(cx: &mut App) {
     .on_action(|_: &About, cx| {
         open_about_window(cx);
     });
+
+    // OXIDIAN BEGIN — Configure editor inside vault
+    cx.observe_new(move |_editor: &mut Editor, _window, cx| {
+        let editor_handle = cx.entity();
+        let mut line_numbers_adjusted = false;
+        cx.observe(&editor_handle, move |editor, _window, cx| {
+            if line_numbers_adjusted {
+                return;
+            }
+            let is_vault = cx
+                .try_global::<oxidian_vault::ActiveVault>()
+                .map(|v| v.0.is_some())
+                .unwrap_or(false);
+            if is_vault {
+                let is_markdown =
+                    editor
+                        .buffer()
+                        .read(cx)
+                        .all_buffers()
+                        .into_iter()
+                        .any(|buffer| {
+                            buffer
+                                .read(cx)
+                                .language()
+                                .map(|language| language.name().as_ref() == "Markdown")
+                                .unwrap_or(false)
+                        });
+                if is_markdown {
+                    editor.set_show_line_numbers(false, cx);
+                    line_numbers_adjusted = true;
+                }
+            }
+        })
+        .detach();
+    })
+    .detach();
+    // OXIDIAN END
 }
 
 fn bind_on_window_closed(cx: &mut App) -> Option<gpui::Subscription> {
@@ -599,8 +636,35 @@ pub fn initialize_workspace(app_state: Arc<AppState>, cx: &mut App) {
             status_bar.add_right_item(image_info, window, cx);
         });
 
+        // OXIDIAN BEGIN — Open panels when vault is detected
         let panels_task = initialize_panels(window, cx);
-        workspace.set_panels_task(panels_task);
+        let oxidian_panels_task = cx.spawn_in(window, async move |workspace_handle, cx| {
+            let _ = panels_task.await;
+
+            // Check if this workspace has a vault root
+            let is_vault = workspace_handle
+                .update_in(cx, |workspace, _window, cx| {
+                    let Some(worktree) = workspace.visible_worktrees(cx).next() else {
+                        return false;
+                    };
+                    let root_path = worktree.read(cx).abs_path().to_path_buf();
+                    oxidian_vault::is_vault_root(&root_path)
+                })
+                .unwrap_or(false);
+
+            if is_vault {
+                workspace_handle
+                    .update_in(cx, |workspace, window, cx| {
+                        workspace.open_panel::<oxidian_backlinks::BacklinksPanel>(window, cx);
+                        workspace.open_panel::<oxidian_daily::DailyNotesPanel>(window, cx);
+                        workspace.open_panel::<oxidian_frontmatter::TagBrowserPanel>(window, cx);
+                    })
+                    .ok();
+            }
+            anyhow::Ok(())
+        });
+        workspace.set_panels_task(oxidian_panels_task);
+        // OXIDIAN END
         register_actions(app_state.clone(), workspace, window, cx);
 
         if !workspace.has_active_modal(window, cx) {
@@ -1565,7 +1629,9 @@ fn open_about_window(cx: &mut App) {
     cx.open_window(
         WindowOptions {
             titlebar: Some(TitlebarOptions {
-                title: Some("About Zed".into()),
+                // OXIDIAN BEGIN
+                title: Some("About Oxidian".into()),
+                // OXIDIAN END
                 appears_transparent: true,
                 traffic_light_position: Some(point(px(12.), px(12.))),
             }),

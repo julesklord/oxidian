@@ -7,9 +7,8 @@ use db::static_connection;
 use fs::Fs;
 use gpui::{App, AppContext as _, BorrowAppContext, Context, Entity, EventEmitter, Global, Task};
 use oxidian_core::{NoteId, VaultConfig, WikiLink, WikiLinkResolver};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
-
 
 // OXIDIAN BEGIN — vault database domain
 
@@ -19,38 +18,36 @@ pub struct VaultDatabase(db::sqlez::thread_safe_connection::ThreadSafeConnection
 impl Domain for VaultDatabase {
     const NAME: &str = "oxidian_vault";
 
-    const MIGRATIONS: &[&str] = &[
-        sql!(
-            CREATE TABLE IF NOT EXISTS vault_notes (
-                note_id     TEXT PRIMARY KEY,
-                title       TEXT NOT NULL,
-                path        TEXT NOT NULL,
-                modified_at INTEGER NOT NULL
-            ) STRICT;
+    const MIGRATIONS: &[&str] = &[sql!(
+        CREATE TABLE IF NOT EXISTS vault_notes (
+            note_id     TEXT PRIMARY KEY,
+            title       TEXT NOT NULL,
+            path        TEXT NOT NULL,
+            modified_at INTEGER NOT NULL
+        ) STRICT;
 
-            CREATE TABLE IF NOT EXISTS vault_links (
-                from_note   TEXT NOT NULL,
-                to_target   TEXT NOT NULL,
-                alias       TEXT,
-                heading     TEXT,
-                line        INTEGER NOT NULL,
-                FOREIGN KEY (from_note) REFERENCES vault_notes(note_id) ON DELETE CASCADE
-            ) STRICT;
+        CREATE TABLE IF NOT EXISTS vault_links (
+            from_note   TEXT NOT NULL,
+            to_target   TEXT NOT NULL,
+            alias       TEXT,
+            heading     TEXT,
+            line        INTEGER NOT NULL,
+            FOREIGN KEY (from_note) REFERENCES vault_notes(note_id) ON DELETE CASCADE
+        ) STRICT;
 
-            CREATE INDEX IF NOT EXISTS idx_vault_links_to_target
-                ON vault_links(to_target);
+        CREATE INDEX IF NOT EXISTS idx_vault_links_to_target
+            ON vault_links(to_target);
 
-            CREATE TABLE IF NOT EXISTS vault_tags (
-                note_id TEXT NOT NULL,
-                tag     TEXT NOT NULL,
-                PRIMARY KEY (note_id, tag),
-                FOREIGN KEY (note_id) REFERENCES vault_notes(note_id) ON DELETE CASCADE
-            ) STRICT;
+        CREATE TABLE IF NOT EXISTS vault_tags (
+            note_id TEXT NOT NULL,
+            tag     TEXT NOT NULL,
+            PRIMARY KEY (note_id, tag),
+            FOREIGN KEY (note_id) REFERENCES vault_notes(note_id) ON DELETE CASCADE
+        ) STRICT;
 
-            CREATE INDEX IF NOT EXISTS idx_vault_tags_tag
-                ON vault_tags(tag);
-        ),
-    ];
+        CREATE INDEX IF NOT EXISTS idx_vault_tags_tag
+            ON vault_tags(tag);
+    )];
 }
 
 static_connection!(VaultDatabase, []);
@@ -142,7 +139,6 @@ impl VaultDatabase {
 
 // OXIDIAN END
 
-
 // OXIDIAN BEGIN — vault index
 
 /// Events emitted by `VaultIndex` to notify the UI layer.
@@ -170,11 +166,7 @@ impl EventEmitter<VaultEvent> for VaultIndex {}
 impl VaultIndex {
     /// Creates and starts a new vault index for the given config.
     /// Immediately starts a background scan of the vault directory.
-    pub fn new(
-        config: VaultConfig,
-        fs: Arc<dyn Fs>,
-        cx: &mut Context<Self>,
-    ) -> Self {
+    pub fn new(config: VaultConfig, fs: Arc<dyn Fs>, cx: &mut Context<Self>) -> Self {
         let db = VaultDatabase::global(cx);
 
         let vault_root = config.root.clone();
@@ -194,11 +186,18 @@ impl VaultIndex {
                     let note_id = Self::note_id_for_path(&vault_root, &path);
                     let Some(note_id) = note_id else { continue };
 
-                    if let Err(err) = this.update(cx, |vault, cx| {
-                        vault.index_note(note_id.clone(), path, cx)
-                    }) {
-                        log::error!("VaultIndex: entity gone while indexing {note_id}: {err}");
-                        break;
+                    match this.update(cx, |vault, cx| vault.index_note(note_id.clone(), path, cx)) {
+                        Ok(task) => cx
+                            .background_spawn(async move {
+                                if let Err(err) = task.await {
+                                    log::error!("VaultIndex: failed to index note: {err}");
+                                }
+                            })
+                            .detach(),
+                        Err(err) => {
+                            log::error!("VaultIndex: entity gone while indexing {note_id}: {err}");
+                            break;
+                        }
                     }
                 }
             }
@@ -257,8 +256,7 @@ impl VaultIndex {
         self.notes.insert(note_id, path.clone());
 
         cx.background_spawn(async move {
-            let metadata = std::fs::metadata(&path)
-                .context("reading note metadata")?;
+            let metadata = std::fs::metadata(&path).context("reading note metadata")?;
             let modified_at = metadata
                 .modified()
                 .context("reading modification time")?
@@ -266,8 +264,7 @@ impl VaultIndex {
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or(0);
 
-            let content = std::fs::read_to_string(&path)
-                .context("reading note content")?;
+            let content = std::fs::read_to_string(&path).context("reading note content")?;
 
             let title = extract_title(&content).unwrap_or_else(|| {
                 path.file_stem()
@@ -303,10 +300,7 @@ impl VaultIndex {
         })
     }
 
-    async fn scan_vault_directory(
-        root: &Path,
-        _fs: &dyn Fs,
-    ) -> Result<Vec<PathBuf>> {
+    async fn scan_vault_directory(root: &Path, _fs: &dyn Fs) -> Result<Vec<PathBuf>> {
         let root = root.to_path_buf();
         // Run the directory scan on the thread pool since std::fs is synchronous
         smol::unblock(move || {
@@ -314,8 +308,7 @@ impl VaultIndex {
             let mut stack = vec![root];
 
             while let Some(dir) = stack.pop() {
-                let entries = std::fs::read_dir(&dir)
-                    .context("scanning vault directory")?;
+                let entries = std::fs::read_dir(&dir).context("scanning vault directory")?;
 
                 for entry in entries {
                     let entry = entry.context("reading directory entry")?;
@@ -372,7 +365,7 @@ pub fn extract_wiki_links_from_text(text: &str) -> Vec<(usize, WikiLink)> {
 
                 // Skip empty links and links containing newlines (shouldn't happen in single line)
                 if !inner.is_empty() {
-                    results.push((line_index + 1, WikiLink::parse(inner)));
+                    results.push((line_index, WikiLink::parse(inner)));
                 }
 
                 search_start = close_abs + 2;
@@ -443,6 +436,12 @@ fn extract_tags_from_frontmatter(content: &str) -> Vec<String> {
                     }
                 }
                 in_tags_block = false;
+            } else if !value.is_empty() {
+                let tag = value.trim_matches('"').trim_matches('\'');
+                if !tag.is_empty() {
+                    tags.push(tag.to_owned());
+                }
+                in_tags_block = false;
             } else if value.is_empty() {
                 // Block array follows
                 in_tags_block = true;
@@ -496,20 +495,36 @@ fn import_obsidian_config(config: &mut VaultConfig, app_json: &str) {
         return;
     };
 
-    if let Some(attachment_folder) = value
-        .get("attachmentFolderPath")
-        .and_then(|v| v.as_str())
-    {
+    if let Some(attachment_folder) = value.get("attachmentFolderPath").and_then(|v| v.as_str()) {
         config.templates_dir = config.root.join(attachment_folder);
     }
 
-    if let Some(new_folder) = value
-        .get("newFileFolderPath")
-        .and_then(|v| v.as_str())
-    {
-        // newFileFolderPath is where new notes go — we map this to the vault root behavior
-        let _ = new_folder; // stored for future use
+    // Obsidian's newFileFolderPath is intentionally ignored until Oxidian has a
+    // first-class default note folder setting.
+}
+
+// OXIDIAN END
+
+// OXIDIAN BEGIN — note path helpers
+
+fn note_path_for_target(vault_root: &Path, target: &str) -> Option<PathBuf> {
+    let normalized = target.trim().trim_end_matches(".md").replace('\\', "/");
+    let relative = Path::new(&normalized);
+
+    if normalized.is_empty() || relative.is_absolute() {
+        return None;
     }
+
+    if relative.components().any(|component| {
+        matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    }) {
+        return None;
+    }
+
+    Some(vault_root.join(relative).with_extension("md"))
 }
 
 // OXIDIAN END
@@ -525,6 +540,7 @@ impl Global for ActiveVault {}
 /// Call this from `zed/src/main.rs` during initialization.
 pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
     cx.set_global(ActiveVault(None));
+    cx.set_global(oxidian_core::MarksmanBinaryPath(None));
 
     cx.set_global(WikiLinkResolver(Arc::new(move |target, _window, cx| {
         let active_vault = cx.try_global::<ActiveVault>().and_then(|av| av.0.clone())?;
@@ -534,12 +550,22 @@ pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
         } else {
             // Note does not exist yet! Create it under the vault root
             let vault_root = active_vault.read(cx).config.root.clone();
-            let note_path = vault_root.join(format!("{}.md", target));
+            let note_path = note_path_for_target(&vault_root, target)?;
             if !note_path.exists() {
                 if let Some(parent) = note_path.parent() {
-                    let _ = std::fs::create_dir_all(parent);
+                    if let Err(err) = std::fs::create_dir_all(parent) {
+                        log::error!("Oxidian: failed to create note directory {parent:?}: {err}");
+                        return None;
+                    }
                 }
-                let _ = std::fs::write(&note_path, format!("# {}\n\n", target));
+                let title = note_path
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .unwrap_or(target);
+                if let Err(err) = std::fs::write(&note_path, format!("# {title}\n\n")) {
+                    log::error!("Oxidian: failed to create note {note_path:?}: {err}");
+                    return None;
+                }
             }
             Some(note_path)
         }
@@ -553,6 +579,9 @@ pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
 
         if is_vault_root(&root_path) {
             let config = load_vault_config(root_path);
+            cx.set_global(oxidian_core::MarksmanBinaryPath(
+                config.marksman_binary.clone(),
+            ));
             let index = cx.new(|cx| VaultIndex::new(config, fs.clone(), cx));
             cx.update_global::<ActiveVault, _>(|active, _| {
                 active.0 = Some(index);
@@ -573,9 +602,9 @@ mod tests {
         let text = "See [[My Note]] for details.\nAlso [[Another Note|Display]] here.";
         let links = extract_wiki_links_from_text(text);
         assert_eq!(links.len(), 2);
-        assert_eq!(links[0].0, 1);
+        assert_eq!(links[0].0, 0);
         assert_eq!(links[0].1.target.as_ref(), "My Note");
-        assert_eq!(links[1].0, 2);
+        assert_eq!(links[1].0, 1);
         assert_eq!(links[1].1.target.as_ref(), "Another Note");
         assert_eq!(links[1].1.alias.as_deref(), Some("Display"));
     }
@@ -610,6 +639,13 @@ mod tests {
     }
 
     #[test]
+    fn test_extract_tags_scalar() {
+        let content = "---\ntags: rust\n---\n# My Note";
+        let tags = extract_tags_from_frontmatter(content);
+        assert_eq!(tags, vec!["rust"]);
+    }
+
+    #[test]
     fn test_extract_title_from_heading() {
         let content = "# My Great Note\n\nSome content here.";
         assert_eq!(extract_title(content), Some("My Great Note".to_owned()));
@@ -633,5 +669,21 @@ mod tests {
     fn test_is_not_vault_root() {
         let dir = tempfile::tempdir().unwrap();
         assert!(!is_vault_root(dir.path()));
+    }
+
+    #[test]
+    fn test_note_path_for_target_accepts_nested_notes() {
+        let root = Path::new("/vault");
+        assert_eq!(
+            note_path_for_target(root, "projects/alpha"),
+            Some(PathBuf::from("/vault/projects/alpha.md"))
+        );
+    }
+
+    #[test]
+    fn test_note_path_for_target_rejects_escape_paths() {
+        let root = Path::new("/vault");
+        assert_eq!(note_path_for_target(root, "../secret"), None);
+        assert_eq!(note_path_for_target(root, "/tmp/secret"), None);
     }
 }

@@ -8,7 +8,8 @@ pub struct NoteId(pub Arc<str>);
 
 impl NoteId {
     pub fn from_relative_path(path: &str) -> Self {
-        let without_ext = path.strip_suffix(".md").unwrap_or(path);
+        let normalized = path.trim_start_matches('/').replace('\\', "/");
+        let without_ext = normalized.strip_suffix(".md").unwrap_or(&normalized);
         Self(Arc::from(without_ext))
     }
 
@@ -42,14 +43,14 @@ impl WikiLink {
     pub fn parse(inner: &str) -> Self {
         let (target_and_heading, alias) = if let Some(pipe_pos) = inner.find('|') {
             let alias = inner[pipe_pos + 1..].trim();
-            (&inner[..pipe_pos], Some(Arc::from(alias)))
+            (&inner[..pipe_pos], non_empty_arc(alias))
         } else {
             (inner, None)
         };
 
         let (target, heading) = if let Some(hash_pos) = target_and_heading.find('#') {
             let heading = target_and_heading[hash_pos + 1..].trim();
-            (&target_and_heading[..hash_pos], Some(Arc::from(heading)))
+            (&target_and_heading[..hash_pos], non_empty_arc(heading))
         } else {
             (target_and_heading, None)
         };
@@ -104,47 +105,60 @@ impl VaultConfig {
     }
 }
 
+fn non_empty_arc(value: &str) -> Option<Arc<str>> {
+    (!value.is_empty()).then(|| Arc::from(value))
+}
+
 /// A reference from one note to another, either via wiki-link or standard Markdown link.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NoteRef {
     WikiLink(WikiLink),
-    MarkdownLink { url: Arc<str>, title: Option<Arc<str>> },
+    MarkdownLink {
+        url: Arc<str>,
+        title: Option<Arc<str>>,
+    },
 }
 
 /// Helper to check if a character column is inside a `[[wiki-link]]` on a given line.
 /// If yes, returns the inner content of the wiki-link.
 pub fn find_wiki_link_at_column(line: &str, col: usize) -> Option<String> {
     let chars: Vec<char> = line.chars().collect();
-    
-    // Look backwards from col for "[["
-    let mut open_idx = None;
-    if col >= 2 {
-        for i in (0..=col.min(chars.len() - 2)).rev() {
-            if chars[i] == '[' && chars[i+1] == '[' {
-                open_idx = Some(i + 2);
-                break;
-            }
-            if chars[i] == ']' && chars[i+1] == ']' && i + 2 <= col {
-                return None;
-            }
-        }
+    if chars.len() < 4 {
+        return None;
     }
 
-    let Some(start) = open_idx else { return None; };
-
-    // Look forwards from start for "]]"
-    let mut close_idx = None;
-    for i in start..chars.len() {
-        if i + 2 <= chars.len() && chars[i] == ']' && chars[i+1] == ']' {
-            close_idx = Some(i);
+    // Look backwards from col for "[["
+    let mut open_idx = None;
+    let cursor = col.min(chars.len().saturating_sub(1));
+    for i in (0..=cursor.min(chars.len().saturating_sub(2))).rev() {
+        if chars[i] == '[' && chars[i + 1] == '[' {
+            open_idx = Some(i + 2);
             break;
         }
-        if i + 2 <= chars.len() && chars[i] == '[' && chars[i+1] == '[' {
+        if chars[i] == ']' && chars[i + 1] == ']' && i + 2 <= col {
             return None;
         }
     }
 
-    let Some(end) = close_idx else { return None; };
+    let Some(start) = open_idx else {
+        return None;
+    };
+
+    // Look forwards from start for "]]"
+    let mut close_idx = None;
+    for i in start..chars.len().saturating_sub(1) {
+        if chars[i] == ']' && chars[i + 1] == ']' {
+            close_idx = Some(i);
+            break;
+        }
+        if chars[i] == '[' && chars[i + 1] == '[' {
+            return None;
+        }
+    }
+
+    let Some(end) = close_idx else {
+        return None;
+    };
 
     if col >= start - 2 && col <= end + 2 {
         let content: String = chars[start..end].iter().collect();
@@ -161,6 +175,11 @@ pub struct WikiLinkResolver(
 );
 
 impl gpui::Global for WikiLinkResolver {}
+
+// OXIDIAN BEGIN
+pub struct MarksmanBinaryPath(pub Option<PathBuf>);
+impl gpui::Global for MarksmanBinaryPath {}
+// OXIDIAN END
 
 #[cfg(test)]
 mod tests {
@@ -199,8 +218,22 @@ mod tests {
     }
 
     #[test]
+    fn test_wiki_link_ignores_empty_alias_and_heading() {
+        let link = WikiLink::parse("My Note#|");
+        assert_eq!(link.target.as_ref(), "My Note");
+        assert!(link.alias.is_none());
+        assert!(link.heading.is_none());
+    }
+
+    #[test]
     fn test_note_id_strips_md_extension() {
         let id = NoteId::from_relative_path("projects/alpha.md");
+        assert_eq!(id.as_str(), "projects/alpha");
+    }
+
+    #[test]
+    fn test_note_id_normalizes_path_separators() {
+        let id = NoteId::from_relative_path("/projects\\alpha.md");
         assert_eq!(id.as_str(), "projects/alpha");
     }
 
@@ -213,10 +246,26 @@ mod tests {
     #[test]
     fn test_find_wiki_link_at_column() {
         let line = "See [[My Note|Display]] here";
-        assert_eq!(find_wiki_link_at_column(line, 8), Some("My Note|Display".to_owned())); // inside My Note
-        assert_eq!(find_wiki_link_at_column(line, 4), Some("My Note|Display".to_owned())); // at [[
-        assert_eq!(find_wiki_link_at_column(line, 22), Some("My Note|Display".to_owned())); // at ]]
+        assert_eq!(
+            find_wiki_link_at_column(line, 8),
+            Some("My Note|Display".to_owned())
+        ); // inside My Note
+        assert_eq!(
+            find_wiki_link_at_column(line, 4),
+            Some("My Note|Display".to_owned())
+        ); // at [[
+        assert_eq!(
+            find_wiki_link_at_column(line, 22),
+            Some("My Note|Display".to_owned())
+        ); // at ]]
         assert_eq!(find_wiki_link_at_column(line, 3), None); // before [[
         assert_eq!(find_wiki_link_at_column(line, 24), None); // after ]]
+    }
+
+    #[test]
+    fn test_find_wiki_link_at_column_handles_short_lines() {
+        assert_eq!(find_wiki_link_at_column("", 0), None);
+        assert_eq!(find_wiki_link_at_column("[", 0), None);
+        assert_eq!(find_wiki_link_at_column("[[]", 1), None);
     }
 }

@@ -150,19 +150,21 @@ impl ZedAiOnboarding {
     fn render_sign_in_disclaimer(&self, _cx: &mut App) -> AnyElement {
         let signing_in = matches!(self.sign_in_status, SignInStatus::SigningIn);
 
+        // OXIDIAN BEGIN
         v_flex()
             .w_full()
             .relative()
             .gap_1()
-            .child(Headline::new("Welcome to Zed AI"))
+            .child(Headline::new("Welcome to Oxidian AI"))
             .child(
-                Label::new("Sign in to try Zed Pro free for 14 days.")
+                Label::new("Sign in to try Oxidian Pro free for 14 days.")
                     .color(Color::Muted)
                     .mb_2(),
             )
             .child(PlanDefinitions.sign_in_upsell())
             .child(
-                Button::new("sign_in", "Try Zed Pro for Free")
+                Button::new("sign_in", "Try Oxidian Pro for Free")
+                    // OXIDIAN END
                     .disabled(signing_in)
                     .full_width()
                     .style(ButtonStyle::Tinted(ui::TintColor::Accent))
@@ -180,11 +182,13 @@ impl ZedAiOnboarding {
 
     fn render_free_plan_state(&self, cx: &mut App) -> AnyElement {
         if self.account_too_young {
+            // OXIDIAN BEGIN
             v_flex()
                 .relative()
                 .min_w_0()
                 .gap_1()
-                .child(Headline::new("Welcome to Zed AI"))
+                .child(Headline::new("Welcome to Oxidian AI"))
+                // OXIDIAN END
                 .child(YoungAccountBanner)
                 .child(
                     v_flex()
@@ -217,11 +221,13 @@ impl ZedAiOnboarding {
                 )
                 .into_any_element()
         } else {
+            // OXIDIAN BEGIN
             v_flex()
                 .w_full()
                 .relative()
                 .gap_1()
-                .child(Headline::new("Welcome to Zed AI"))
+                .child(Headline::new("Welcome to Oxidian AI"))
+                // OXIDIAN END
                 .child(
                     v_flex()
                         .mt_2()
@@ -282,12 +288,14 @@ impl ZedAiOnboarding {
     }
 
     fn render_trial_state(&self, cx: &mut App) -> AnyElement {
+        // OXIDIAN BEGIN
         v_flex()
             .w_full()
             .relative()
             .gap_1()
             .child(Self::pro_trial_stamp(cx))
-            .child(Headline::new("Welcome to the Zed Pro Trial"))
+            .child(Headline::new("Welcome to the Oxidian Pro Trial"))
+            // OXIDIAN END
             .child(
                 Label::new("Here's what you get for the next 14 days:")
                     .color(Color::Muted)
@@ -299,12 +307,14 @@ impl ZedAiOnboarding {
     }
 
     fn render_pro_plan_state(&self, cx: &mut App) -> AnyElement {
+        // OXIDIAN BEGIN
         v_flex()
             .w_full()
             .relative()
             .gap_1()
             .child(Self::certified_user_stamp(cx))
-            .child(Headline::new("Welcome to Zed Pro"))
+            .child(Headline::new("Welcome to Oxidian Pro"))
+            // OXIDIAN END
             .child(
                 Label::new("Here's what you get:")
                     .color(Color::Muted)
@@ -316,12 +326,14 @@ impl ZedAiOnboarding {
     }
 
     fn render_business_plan_state(&self, cx: &mut App) -> AnyElement {
+        // OXIDIAN BEGIN
         v_flex()
             .w_full()
             .relative()
             .gap_1()
             .child(Self::business_stamp(cx))
-            .child(Headline::new("Welcome to Zed Business"))
+            .child(Headline::new("Welcome to Oxidian Business"))
+            // OXIDIAN END
             .child(
                 Label::new("Here's what you get:")
                     .color(Color::Muted)
@@ -333,12 +345,14 @@ impl ZedAiOnboarding {
     }
 
     fn render_student_plan_state(&self, cx: &mut App) -> AnyElement {
+        // OXIDIAN BEGIN
         v_flex()
             .w_full()
             .relative()
             .gap_1()
             .child(Self::student_stamp(cx))
-            .child(Headline::new("Welcome to Zed Student"))
+            .child(Headline::new("Welcome to Oxidian Student"))
+            // OXIDIAN END
             .child(
                 Label::new("Here's what you get:")
                     .color(Color::Muted)
