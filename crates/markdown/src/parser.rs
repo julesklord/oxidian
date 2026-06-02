@@ -680,8 +680,9 @@ fn extract_wiki_links(text: &str) -> Vec<(Range<usize>, WikiLink)> {
     let mut in_code_fence = false;
     let mut byte_offset: usize = 0;
 
-    for line in text.lines() {
-        let trimmed = line.trim_start();
+    for line in text.split('\n') {
+        let line_for_analysis = line.strip_suffix('\r').unwrap_or(line);
+        let trimmed = line_for_analysis.trim_start();
 
         // Track fenced code blocks so we don't parse wiki-links inside them
         if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
@@ -692,20 +693,20 @@ fn extract_wiki_links(text: &str) -> Vec<(Range<usize>, WikiLink)> {
 
         if !in_code_fence {
             let mut search_start = 0;
-            while let Some(open_rel) = line[search_start..].find("[[") {
+            while let Some(open_rel) = line_for_analysis[search_start..].find("[[") {
                 let open_abs = search_start + open_rel;
 
                 // Skip links inside inline code spans (heuristic: count backticks before this pos)
-                let backticks_before = line[..open_abs].chars().filter(|&c| c == '`').count();
+                let backticks_before = line_for_analysis[..open_abs].chars().filter(|&c| c == '`').count();
                 if backticks_before % 2 != 0 {
                     search_start = open_abs + 2;
                     continue;
                 }
 
                 let after_open = open_abs + 2;
-                if let Some(close_rel) = line[after_open..].find("]]") {
+                if let Some(close_rel) = line_for_analysis[after_open..].find("]]") {
                     let close_abs = after_open + close_rel;
-                    let inner = &line[after_open..close_abs];
+                    let inner = &line_for_analysis[after_open..close_abs];
 
                     if !inner.is_empty() && !inner.contains('[') {
                         let link_byte_offset = byte_offset + open_abs;
@@ -1862,5 +1863,29 @@ mod tests {
         );
         assert_eq!(link_events[4].1, SubstitutedText("Custom Alias".into()));
         assert!(matches!(link_events[5].1, End(MarkdownTagEnd::Link)));
+
+        // Test with CRLF (Windows) line endings
+        let parsed_crlf = parse_markdown_with_options(
+            "Line 1\r\nCheck [[My Target]] here\r\nLine 3 with [[Another Target]]",
+            false,
+            false,
+            false,
+        );
+        assert_eq!(parsed_crlf.wiki_links.len(), 2);
+        assert_eq!(parsed_crlf.wiki_links[0].1.target.as_ref(), "My Target");
+        assert_eq!(parsed_crlf.wiki_links[1].1.target.as_ref(), "Another Target");
+
+        // Verify the injected events for CRLF
+        let crlf_link_events: Vec<_> = parsed_crlf
+            .events
+            .iter()
+            .filter(|(_, event)| {
+                matches!(
+                    event,
+                    Start(Link { .. }) | End(MarkdownTagEnd::Link) | SubstitutedText(_)
+                )
+            })
+            .collect();
+        assert_eq!(crlf_link_events.len(), 6);
     }
 }
