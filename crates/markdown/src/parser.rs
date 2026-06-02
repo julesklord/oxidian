@@ -697,7 +697,10 @@ fn extract_wiki_links(text: &str) -> Vec<(Range<usize>, WikiLink)> {
                 let open_abs = search_start + open_rel;
 
                 // Skip links inside inline code spans (heuristic: count backticks before this pos)
-                let backticks_before = line_for_analysis[..open_abs].chars().filter(|&c| c == '`').count();
+                let backticks_before = line_for_analysis[..open_abs]
+                    .chars()
+                    .filter(|&c| c == '`')
+                    .count();
                 if backticks_before % 2 != 0 {
                     search_start = open_abs + 2;
                     continue;
@@ -1873,7 +1876,10 @@ mod tests {
         );
         assert_eq!(parsed_crlf.wiki_links.len(), 2);
         assert_eq!(parsed_crlf.wiki_links[0].1.target.as_ref(), "My Target");
-        assert_eq!(parsed_crlf.wiki_links[1].1.target.as_ref(), "Another Target");
+        assert_eq!(
+            parsed_crlf.wiki_links[1].1.target.as_ref(),
+            "Another Target"
+        );
 
         // Verify the injected events for CRLF
         let crlf_link_events: Vec<_> = parsed_crlf

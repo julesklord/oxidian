@@ -12888,7 +12888,7 @@ checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
 
 [[package]]
 name = "oxidian"
-version = "0.1.0-pre-alpha"
+version = "0.2.0"
 dependencies = [
  "acp_thread",
  "acp_tools",
@@ -13065,7 +13065,7 @@ dependencies = [
 
 [[package]]
 name = "oxidian_backlinks"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "collections",
@@ -13081,14 +13081,14 @@ dependencies = [
 
 [[package]]
 name = "oxidian_core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "gpui",
 ]
 
 [[package]]
 name = "oxidian_daily"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -13105,7 +13105,7 @@ dependencies = [
 
 [[package]]
 name = "oxidian_frontmatter"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -13122,7 +13122,7 @@ dependencies = [
 
 [[package]]
 name = "oxidian_vault"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-channel 2.5.0",
@@ -13132,11 +13132,13 @@ dependencies = [
  "gpui",
  "log",
  "oxidian_core",
+ "project",
  "serde_json",
  "smol",
  "tempfile",
  "util",
  "workspace",
+ "worktree",
 ]
 
 [[package]]

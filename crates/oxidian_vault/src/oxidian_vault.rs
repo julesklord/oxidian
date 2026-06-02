@@ -9,6 +9,7 @@ use gpui::{App, AppContext as _, BorrowAppContext, Context, Entity, EventEmitter
 use oxidian_core::{NoteId, VaultConfig, WikiLink, WikiLinkResolver};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
+use worktree::{PathChange, UpdatedEntriesSet, WorktreeId};
 
 // OXIDIAN BEGIN — vault database domain
 
@@ -200,6 +201,11 @@ impl VaultIndex {
                         }
                     }
                 }
+
+                this.update(cx, |_, cx| {
+                    cx.emit(VaultEvent::InitialScanComplete);
+                })
+                .ok();
             }
         });
 
@@ -298,6 +304,71 @@ impl VaultIndex {
 
             Ok(())
         })
+    }
+
+    /// Removes a single note from the index and updates the DB.
+    fn remove_note(&mut self, note_id: NoteId, cx: &mut Context<Self>) -> Task<Result<()>> {
+        let db = self.db.clone();
+        let note_id_str = note_id.as_str().to_owned();
+
+        self.notes.remove(&note_id);
+
+        cx.background_spawn(async move {
+            db.delete_note(note_id_str.clone()).await?;
+            db.delete_links_from(note_id_str.clone()).await?;
+            db.delete_tags_for_note(note_id_str.clone()).await?;
+            Ok(())
+        })
+    }
+
+    /// Handles worktree updates in real-time, re-indexing or removing notes as appropriate.
+    pub fn handle_worktree_updated_entries(
+        &mut self,
+        _worktree_id: WorktreeId,
+        entries: &UpdatedEntriesSet,
+        cx: &mut Context<Self>,
+    ) {
+        let vault_root = self.config.root.clone();
+        for (rel_path, _, change) in entries.iter() {
+            let abs_path = vault_root.join(rel_path.as_ref());
+            if abs_path.extension().is_some_and(|ext| ext == "md") {
+                let name = abs_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if name.starts_with('.') {
+                    continue;
+                }
+
+                let note_id = Self::note_id_for_path(&vault_root, &abs_path);
+                let Some(note_id) = note_id else { continue };
+
+                match change {
+                    PathChange::Removed => {
+                        let task = self.remove_note(note_id.clone(), cx);
+                        let note_id_clone = note_id.clone();
+                        cx.background_spawn(async move {
+                            if let Err(err) = task.await {
+                                log::error!("VaultIndex: failed to remove note: {err}");
+                            }
+                        })
+                        .detach();
+                        cx.emit(VaultEvent::NoteRemoved(note_id_clone));
+                    }
+                    PathChange::Added
+                    | PathChange::Updated
+                    | PathChange::AddedOrUpdated
+                    | PathChange::Loaded => {
+                        let task = self.index_note(note_id.clone(), abs_path, cx);
+                        let note_id_clone = note_id.clone();
+                        cx.background_spawn(async move {
+                            if let Err(err) = task.await {
+                                log::error!("VaultIndex: failed to index note: {err}");
+                            }
+                        })
+                        .detach();
+                        cx.emit(VaultEvent::NoteIndexed(note_id_clone));
+                    }
+                }
+            }
+        }
     }
 
     async fn scan_vault_directory(root: &Path, _fs: &dyn Fs) -> Result<Vec<PathBuf>> {
@@ -583,6 +654,24 @@ pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
                 config.marksman_binary.clone(),
             ));
             let index = cx.new(|cx| VaultIndex::new(config, fs.clone(), cx));
+
+            // Subscribe to project events to re-index notes in real-time!
+            let project = workspace.project().clone();
+            let index_weak = index.downgrade();
+            cx.subscribe(&project, move |_, _, event, cx| {
+                if let Some(index) = index_weak.upgrade() {
+                    match event {
+                        project::Event::WorktreeUpdatedEntries(worktree_id, entries) => {
+                            index.update(cx, |vault, cx| {
+                                vault.handle_worktree_updated_entries(*worktree_id, entries, cx);
+                            });
+                        }
+                        _ => {}
+                    }
+                }
+            })
+            .detach();
+
             cx.update_global::<ActiveVault, _>(|active, _| {
                 active.0 = Some(index);
             });

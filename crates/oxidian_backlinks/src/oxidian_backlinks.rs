@@ -4,7 +4,7 @@ use gpui::{
     StatefulInteractiveElement as _, Styled as _, Subscription, WeakEntity, Window, actions, div,
 };
 use oxidian_core::NoteId;
-use oxidian_vault::{ActiveVault, VaultDatabase};
+use oxidian_vault::{ActiveVault, VaultDatabase, VaultEvent, VaultIndex};
 use std::path::PathBuf;
 use std::sync::Arc;
 use ui::prelude::*;
@@ -40,6 +40,7 @@ pub struct BacklinksPanel {
     flexible: bool,
     default_size: Pixels,
     _subscriptions: Vec<Subscription>,
+    _vault_subscription: Option<(Entity<VaultIndex>, Subscription)>,
 }
 
 impl EventEmitter<PanelEvent> for BacklinksPanel {}
@@ -58,6 +59,7 @@ impl BacklinksPanel {
             flexible: true,
             default_size: Pixels::from(300.0),
             _subscriptions: Vec::new(),
+            _vault_subscription: None,
         };
 
         this._subscriptions
@@ -90,7 +92,29 @@ impl BacklinksPanel {
         })
     }
 
+    fn subscribe_to_vault_if_needed(&mut self, cx: &mut Context<Self>) {
+        let active_vault = cx.try_global::<ActiveVault>().and_then(|av| av.0.clone());
+        if let Some(active_vault) = active_vault {
+            if let Some((ref subbed_vault, _)) = self._vault_subscription {
+                if subbed_vault == &active_vault {
+                    return;
+                }
+            }
+            let subscription = cx.subscribe(&active_vault, move |this, _, event, cx| match event {
+                VaultEvent::NoteIndexed(_)
+                | VaultEvent::NoteRemoved(_)
+                | VaultEvent::InitialScanComplete => {
+                    this.active_item_changed(cx);
+                }
+            });
+            self._vault_subscription = Some((active_vault, subscription));
+        } else {
+            self._vault_subscription = None;
+        }
+    }
+
     fn active_item_changed(&mut self, cx: &mut Context<Self>) {
+        self.subscribe_to_vault_if_needed(cx);
         let Some(workspace) = self.workspace.upgrade() else {
             return;
         };

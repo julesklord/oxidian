@@ -4,7 +4,7 @@ use gpui::{
     StatefulInteractiveElement as _, Styled as _, Subscription, WeakEntity, Window, actions, div,
 };
 use oxidian_core::NoteId;
-use oxidian_vault::{ActiveVault, VaultDatabase};
+use oxidian_vault::{ActiveVault, VaultDatabase, VaultEvent, VaultIndex};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use ui::prelude::*;
@@ -51,6 +51,7 @@ pub struct TagBrowserPanel {
     flexible: bool,
     default_size: Pixels,
     _subscriptions: Vec<Subscription>,
+    _vault_subscription: Option<(Entity<VaultIndex>, Subscription)>,
 }
 
 impl EventEmitter<PanelEvent> for TagBrowserPanel {}
@@ -76,6 +77,7 @@ impl TagBrowserPanel {
             flexible: true,
             default_size: Pixels::from(300.0),
             _subscriptions: Vec::new(),
+            _vault_subscription: None,
         };
 
         this._subscriptions
@@ -113,6 +115,15 @@ impl TagBrowserPanel {
         if let Ok(tags_with_counts) = db.all_tags_with_counts() {
             self.tags = tags_with_counts;
         }
+
+        // Refresh notes list for expanded tags
+        let expanded = self.expanded_tags.clone();
+        for tag in expanded {
+            if let Ok(notes) = db.notes_with_tag(&tag) {
+                self.notes_by_tag.insert(tag, notes);
+            }
+        }
+
         cx.notify();
     }
 
@@ -158,7 +169,29 @@ impl TagBrowserPanel {
         }
     }
 
+    fn subscribe_to_vault_if_needed(&mut self, cx: &mut Context<Self>) {
+        let active_vault = cx.try_global::<ActiveVault>().and_then(|av| av.0.clone());
+        if let Some(active_vault) = active_vault {
+            if let Some((ref subbed_vault, _)) = self._vault_subscription {
+                if subbed_vault == &active_vault {
+                    return;
+                }
+            }
+            let subscription = cx.subscribe(&active_vault, move |this, _, event, cx| match event {
+                VaultEvent::NoteIndexed(_)
+                | VaultEvent::NoteRemoved(_)
+                | VaultEvent::InitialScanComplete => {
+                    this.active_item_changed(cx);
+                }
+            });
+            self._vault_subscription = Some((active_vault, subscription));
+        } else {
+            self._vault_subscription = None;
+        }
+    }
+
     fn active_item_changed(&mut self, cx: &mut Context<Self>) {
+        self.subscribe_to_vault_if_needed(cx);
         self.update_tags(cx);
 
         let Some(workspace) = self.workspace.upgrade() else {

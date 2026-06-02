@@ -33,4 +33,4 @@ Oxidian builds directly on Zed. Follow the standard development guides:
 Oxidian uses the Zed license (GPL-3.0-or-later / Apache-2.0).
 
 ---
-*Developed with Rust and AI.*
+*Developed with Rust*
