@@ -1,0 +1,17 @@
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      "ctrl-shift-b": "oxidian_backlinks::ToggleBacklinksPanel",
+      "ctrl-shift-d": "oxidian_daily::ToggleDailyNotesPanel",
+      "ctrl-shift-t": "oxidian_frontmatter::ToggleTagBrowserPanel",
+      "ctrl-shift-o": "oxidian_daily::OpenTodayNote"
+    }
+  },
+  {
+    "context": "Editor && extension == md",
+    "bindings": {
+      "ctrl-enter": "editor::OpenExcerpts"
+    }
+  }
+]

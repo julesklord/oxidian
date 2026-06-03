@@ -13,6 +13,8 @@ use rust_embed::RustEmbed;
 #[exclude = "themes/src/*"]
 #[include = "sounds/**/*"]
 #[include = "prompts/**/*"]
+#[include = "keymaps/**/*"]
+#[include = "oxidian/**/*"]
 #[include = "*.md"]
 #[exclude = "*.DS_Store"]
 pub struct Assets;

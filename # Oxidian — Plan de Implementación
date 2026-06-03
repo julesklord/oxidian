@@ -1,0 +1,686 @@
+# Oxidian — Plan de Implementación Maestro
+> Prompt para agentes de código (Gemini CLI / Codex / OpenCode)
+> Repo: `/home/julesklord/Proyectos/repos/oxidian`
+> Convención de marcadores en el repo: `// OXIDIAN BEGIN` / `// OXIDIAN END`
+
+---
+
+## Contexto del proyecto
+
+Oxidian es un fork/overlay de Zed que lo convierte en una PKM (knowledge base) nativa sin Electron, equivalente a Obsidian pero en Rust/GPUI. El código base es el de Zed íntegro; los crates propios de Oxidian viven en `crates/oxidian_*` y están delimitados con marcadores `# OXIDIAN BEGIN` / `# OXIDIAN END` en `Cargo.toml` y `// OXIDIAN BEGIN` / `// OXIDIAN END` en el código Rust.
+
+**Crates Oxidian existentes:**
+- `crates/oxidian_core` — tipos base: `NoteId`, `WikiLink`, `VaultConfig`, `WikiLinkResolver`, `MarksmanBinaryPath`
+- `crates/oxidian_vault` — índice SQLite de notas, watcher de worktree, backlinks DB
+- `crates/oxidian_backlinks` — panel lateral de backlinks (GPUI `Panel`)
+- `crates/oxidian_daily` — panel de notas diarias con calendario (GPUI `Panel`)
+- `crates/oxidian_frontmatter` — panel de tags y propiedades YAML (GPUI `Panel`)
+
+**Punto de entrada actual** (`crates/zed/src/main.rs`):
+```rust
+// OXIDIAN BEGIN
+oxidian_vault::init(app_state.fs.clone(), cx);
+oxidian_backlinks::init(cx);
+oxidian_daily::init(cx);
+oxidian_frontmatter::init(cx);
+// OXIDIAN END
+```
+Este bloque se ejecuta dentro de `app.run(move |cx| { ... })`, después de `journal::init(app_state.clone(), cx)` y antes de `encoding_selector::init(cx)`.
+
+**Crates de Zed upstream relevantes (ya inicializados en main.rs antes del bloque Oxidian):**
+- `vim::init(cx)` — ya llamado antes del bloque
+- `git_ui::init(cx)` — ya llamado después del bloque
+- `markdown_preview::init(cx)` — ya llamado después del bloque
+- `feature_flags::FeatureFlagStore::init(cx)` — ya llamado antes del bloque
+
+**Regla crítica:** No modificar ningún crate de Zed upstream. Todos los cambios son aditivos en crates `oxidian_*` o en el bloque `// OXIDIAN BEGIN/END` de `main.rs`.
+
+---
+
+## Fase 1 — Crear `crates/oxidian_init`
+
+### 1.1 Crear el archivo `crates/oxidian_init/Cargo.toml`
+
+```toml
+[package]
+name = "oxidian_init"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license = "GPL-3.0-or-later"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/oxidian_init.rs"
+doctest = false
+
+[dependencies]
+fs.workspace = true
+gpui.workspace = true
+log.workspace = true
+oxidian_vault    = { path = "../oxidian_vault" }
+oxidian_backlinks = { path = "../oxidian_backlinks" }
+oxidian_daily    = { path = "../oxidian_daily" }
+oxidian_frontmatter = { path = "../oxidian_frontmatter" }
+```
+
+### 1.2 Crear el archivo `crates/oxidian_init/src/oxidian_init.rs`
+
+```rust
+use fs::Fs;
+use gpui::App;
+use std::sync::Arc;
+
+/// Feature flags de Oxidian controlables en runtime.
+/// En Fase 2 estos valores vendrán de `.oxidian/config.json`.
+/// Por ahora son defaults que no duplican init calls de Zed upstream.
+///
+/// IMPORTANTE: vim, git_ui y markdown_preview ya son inicializados
+/// por Zed upstream en main.rs. Esta struct controla SOLO los crates
+/// de Oxidian propios. La integración con flags de Zed se completa en Fase 3.
+pub struct OxidianFeatures {
+    /// Activa el panel de backlinks (oxidian_backlinks).
+    pub backlinks_panel: bool,
+    /// Activa el panel de notas diarias (oxidian_daily).
+    pub daily_notes_panel: bool,
+    /// Activa el panel de tags y propiedades (oxidian_frontmatter).
+    pub frontmatter_panel: bool,
+}
+
+impl Default for OxidianFeatures {
+    fn default() -> Self {
+        Self {
+            backlinks_panel: true,
+            daily_notes_panel: true,
+            frontmatter_panel: true,
+        }
+    }
+}
+
+/// Punto de entrada único para toda la inicialización de Oxidian.
+///
+/// Llama esta función desde `crates/zed/src/main.rs` dentro del bloque
+/// `// OXIDIAN BEGIN` / `// OXIDIAN END`, en sustitución de las llamadas
+/// individuales a los crates oxidian_*.
+///
+/// Orden garantizado:
+/// 1. oxidian_vault — registra el índice y el WikiLinkResolver global (requerido por los demás)
+/// 2. oxidian_backlinks — requiere ActiveVault registrado por vault
+/// 3. oxidian_daily — requiere ActiveVault registrado por vault
+/// 4. oxidian_frontmatter — requiere ActiveVault y VaultDatabase registrados por vault
+pub fn init(fs: Arc<dyn Fs>, features: OxidianFeatures, cx: &mut App) {
+    // Siempre activo — es el núcleo, los paneles dependen de él
+    oxidian_vault::init(fs.clone(), cx);
+    log::info!("Oxidian: vault index initialized");
+
+    if features.backlinks_panel {
+        oxidian_backlinks::init(cx);
+        log::info!("Oxidian: backlinks panel initialized");
+    }
+
+    if features.daily_notes_panel {
+        oxidian_daily::init(cx);
+        log::info!("Oxidian: daily notes panel initialized");
+    }
+
+    if features.frontmatter_panel {
+        oxidian_frontmatter::init(cx);
+        log::info!("Oxidian: frontmatter/tags panel initialized");
+    }
+}
+```
+
+### 1.3 Registrar el crate en `Cargo.toml` del workspace (raíz)
+
+Localizar la sección `# OXIDIAN BEGIN` en el array `members` y agregar `"crates/oxidian_init"`:
+
+```toml
+# OXIDIAN BEGIN
+"crates/oxidian_core",
+"crates/oxidian_vault",
+"crates/oxidian_backlinks",
+"crates/oxidian_daily",
+"crates/oxidian_frontmatter",
+"crates/oxidian_init",
+# OXIDIAN END
+```
+
+Localizar la sección `# OXIDIAN BEGIN` en `[workspace.dependencies]` y agregar:
+
+```toml
+# OXIDIAN BEGIN
+oxidian_core        = { path = "crates/oxidian_core" }
+oxidian_vault       = { path = "crates/oxidian_vault" }
+oxidian_backlinks   = { path = "crates/oxidian_backlinks" }
+oxidian_daily       = { path = "crates/oxidian_daily" }
+oxidian_frontmatter = { path = "crates/oxidian_frontmatter" }
+oxidian_init        = { path = "crates/oxidian_init" }
+# OXIDIAN END
+```
+
+### 1.4 Agregar `oxidian_init` como dependencia de `crates/zed/Cargo.toml`
+
+Verificar si existe una sección de dependencias oxidian en `crates/zed/Cargo.toml`. Si existe, agregar `oxidian_init.workspace = true`. Si no existe, agregar dentro de `[dependencies]`:
+
+```toml
+oxidian_init = { workspace = true }
+```
+
+### 1.5 Actualizar `crates/zed/src/main.rs`
+
+**Reemplazar** el bloque existente:
+
+```rust
+// OXIDIAN BEGIN
+oxidian_vault::init(app_state.fs.clone(), cx);
+oxidian_backlinks::init(cx);
+oxidian_daily::init(cx);
+oxidian_frontmatter::init(cx);
+// OXIDIAN END
+```
+
+**Con:**
+
+```rust
+// OXIDIAN BEGIN
+oxidian_init::init(
+    app_state.fs.clone(),
+    oxidian_init::OxidianFeatures::default(),
+    cx,
+);
+// OXIDIAN END
+```
+
+**Agregar el use statement** al bloque de imports de `main.rs`. Buscar el último `use oxidian_*` o el comentario `// OXIDIAN BEGIN` en imports y agregar:
+
+```rust
+// Si no existe sección oxidian en imports, agregar junto a los otros use:
+// (No hay imports directos de oxidian_* en main.rs actualmente — el uso
+// es a través del bloque init. Solo agregar si el compilador lo requiere.)
+```
+
+### 1.6 Verificación de compilación (Fase 1)
+
+```bash
+cd /home/julesklord/Proyectos/repos/oxidian
+cargo check -p oxidian_init 2>&1
+cargo check -p zed 2>&1
+```
+
+Resultado esperado: sin errores. `oxidian_init` compila, `zed` compila con el nuevo punto de entrada.
+
+---
+
+## Fase 2 — `OxidianFeatures` desde `VaultConfig` + `.oxidian/config.json`
+
+### 2.1 Extender `VaultConfig` en `crates/oxidian_core/src/oxidian_core.rs`
+
+Agregar el struct `OxidianFeatures` al final de la definición de `VaultConfig`, antes de `impl VaultConfig`:
+
+```rust
+/// Feature flags runtime de Oxidian.
+/// Se deserializan desde `.oxidian/config.json` bajo la clave `"features"`.
+/// Todos los campos son opcionales — si ausentes, se usa el default.
+#[derive(Clone, Debug)]
+pub struct OxidianFeatureFlags {
+    /// Muestra el panel de backlinks. Default: true.
+    pub backlinks_panel: bool,
+    /// Muestra el panel de notas diarias. Default: true.
+    pub daily_notes_panel: bool,
+    /// Muestra el panel de tags/propiedades. Default: true.
+    pub frontmatter_panel: bool,
+    /// Activa vim mode (requiere que vim::init ya haya sido llamado por Zed). Default: false.
+    pub vim_mode: bool,
+    /// Activa el panel git de Zed (requiere git_ui::init). Default: false.
+    pub git_panel: bool,
+}
+
+impl Default for OxidianFeatureFlags {
+    fn default() -> Self {
+        Self {
+            backlinks_panel: true,
+            daily_notes_panel: true,
+            frontmatter_panel: true,
+            vim_mode: false,
+            git_panel: false,
+        }
+    }
+}
+```
+
+Agregar el campo `features` a `VaultConfig`:
+
+```rust
+pub struct VaultConfig {
+    pub root: PathBuf,
+    pub templates_dir: PathBuf,
+    pub daily_notes_dir: PathBuf,
+    pub daily_notes_format: Arc<str>,
+    pub wiki_link_alias_separator: char,
+    pub marksman_binary: Option<PathBuf>,
+    pub disable_cloud_features: bool,
+    pub features: OxidianFeatureFlags,  // <-- nuevo campo
+}
+```
+
+Actualizar `VaultConfig::default_for_root` para incluir el campo nuevo:
+
+```rust
+impl VaultConfig {
+    pub fn default_for_root(root: PathBuf) -> Self {
+        Self {
+            templates_dir: root.join("_templates"),
+            daily_notes_dir: root.join("Daily"),
+            daily_notes_format: Arc::from("YYYY-MM-DD"),
+            wiki_link_alias_separator: '|',
+            marksman_binary: None,
+            disable_cloud_features: true,
+            features: OxidianFeatureFlags::default(),  // <-- nuevo campo
+            root,
+        }
+    }
+}
+```
+
+### 2.2 Parsear features desde `.oxidian/config.json` en `oxidian_vault`
+
+En `crates/oxidian_vault/src/oxidian_vault.rs`, localizar la función `import_obsidian_config` y la función `load_vault_config`. Después de `import_obsidian_config`, agregar:
+
+```rust
+/// Lee el campo `"features"` de `.oxidian/config.json` y aplica los valores
+/// encontrados sobre los defaults de `OxidianFeatureFlags`.
+fn import_oxidian_features(config: &mut VaultConfig) {
+    let oxidian_config_path = config.root.join(".oxidian").join("config.json");
+    let Ok(content) = std::fs::read_to_string(&oxidian_config_path) else {
+        return; // Sin config.json — se usan defaults
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) else {
+        log::warn!("Oxidian: .oxidian/config.json no es JSON válido");
+        return;
+    };
+    let Some(features) = value.get("features") else {
+        return; // Sin sección "features" — se usan defaults
+    };
+
+    if let Some(v) = features.get("backlinks_panel").and_then(|v| v.as_bool()) {
+        config.features.backlinks_panel = v;
+    }
+    if let Some(v) = features.get("daily_notes_panel").and_then(|v| v.as_bool()) {
+        config.features.daily_notes_panel = v;
+    }
+    if let Some(v) = features.get("frontmatter_panel").and_then(|v| v.as_bool()) {
+        config.features.frontmatter_panel = v;
+    }
+    if let Some(v) = features.get("vim_mode").and_then(|v| v.as_bool()) {
+        config.features.vim_mode = v;
+    }
+    if let Some(v) = features.get("git_panel").and_then(|v| v.as_bool()) {
+        config.features.git_panel = v;
+    }
+}
+```
+
+Modificar `load_vault_config` para llamar `import_oxidian_features`:
+
+```rust
+pub fn load_vault_config(root: PathBuf) -> VaultConfig {
+    let obsidian_config = root.join(".obsidian").join("app.json");
+    let mut config = VaultConfig::default_for_root(root);
+
+    if obsidian_config.exists() {
+        if let Ok(content) = std::fs::read_to_string(&obsidian_config) {
+            import_obsidian_config(&mut config, &content);
+        }
+    }
+
+    import_oxidian_features(&mut config);  // <-- nueva llamada
+
+    config
+}
+```
+
+### 2.3 Exponer `OxidianFeatureFlags` desde `oxidian_core` hacia `oxidian_init`
+
+`OxidianFeatureFlags` ya está en `oxidian_core`. `oxidian_init` ya depende de `oxidian_vault` que depende de `oxidian_core`. No requiere dependencia adicional.
+
+### 2.4 Actualizar `oxidian_init` para consumir features desde `VaultConfig`
+
+En `crates/oxidian_init/src/oxidian_init.rs`, agregar una función auxiliar que convierte `OxidianFeatureFlags` → `OxidianFeatures`:
+
+```rust
+use oxidian_vault::load_vault_config;
+
+/// Construye OxidianFeatures leyendo .oxidian/config.json si existe un vault activo.
+/// Si no hay vault detectado, usa defaults conservadores.
+pub fn features_from_config(vault_root: Option<&std::path::Path>) -> OxidianFeatures {
+    let Some(root) = vault_root else {
+        return OxidianFeatures::default();
+    };
+    let config = load_vault_config(root.to_path_buf());
+    OxidianFeatures {
+        backlinks_panel: config.features.backlinks_panel,
+        daily_notes_panel: config.features.daily_notes_panel,
+        frontmatter_panel: config.features.frontmatter_panel,
+    }
+}
+```
+
+**Nota:** `vim_mode` y `git_panel` de `OxidianFeatureFlags` se aplican en Fase 3. Por ahora se ignoran en `oxidian_init` porque esos crates ya fueron inicializados por Zed upstream.
+
+### 2.5 Crear `.oxidian/config.json` de ejemplo
+
+Crear el archivo `assets/oxidian/config.example.json` (para documentación):
+
+```json
+{
+  "features": {
+    "backlinks_panel": true,
+    "daily_notes_panel": true,
+    "frontmatter_panel": true,
+    "vim_mode": false,
+    "git_panel": false
+  }
+}
+```
+
+### 2.6 Verificación de compilación (Fase 2)
+
+```bash
+cargo check -p oxidian_core 2>&1
+cargo check -p oxidian_vault 2>&1
+cargo check -p oxidian_init 2>&1
+cargo check -p zed 2>&1
+```
+
+---
+
+## Fase 3 — Feature flags propios en el crate `feature_flags` de Zed
+
+### 3.1 Crear los flags de Oxidian en `crates/feature_flags/src/feature_flags.rs`
+
+Abrir `crates/feature_flags/src/feature_flags.rs`. Localizar la sección de definiciones de flags existentes. Agregar al final del archivo, dentro del bloque `// OXIDIAN BEGIN` / `// OXIDIAN END` (crear el bloque si no existe):
+
+```rust
+// OXIDIAN BEGIN
+
+/// Activa el panel de backlinks de Oxidian.
+pub struct OxidianBacklinksPanel;
+impl FeatureFlag for OxidianBacklinksPanel {
+    const NAME: &'static str = "oxidian-backlinks-panel";
+}
+
+/// Activa el panel de notas diarias de Oxidian.
+pub struct OxidianDailyNotesPanel;
+impl FeatureFlag for OxidianDailyNotesPanel {
+    const NAME: &'static str = "oxidian-daily-notes-panel";
+}
+
+/// Activa el panel de tags/propiedades de Oxidian.
+pub struct OxidianFrontmatterPanel;
+impl FeatureFlag for OxidianFrontmatterPanel {
+    const NAME: &'static str = "oxidian-frontmatter-panel";
+}
+
+// OXIDIAN END
+```
+
+**Nota:** Inspeccionar primero el archivo para entender el patrón exacto que usa el crate (puede ser un macro, un trait, o una estructura diferente). Adaptar la sintaxis al patrón existente sin inventar uno nuevo.
+
+### 3.2 Consultar flags desde `oxidian_init`
+
+Agregar `feature_flags` como dependencia en `crates/oxidian_init/Cargo.toml`:
+
+```toml
+feature_flags.workspace = true
+```
+
+En `crates/oxidian_init/src/oxidian_init.rs`, actualizar `init` para respetar los feature flags de GPUI si están activos:
+
+```rust
+use feature_flags::{FeatureFlagAppExt, OxidianBacklinksPanel, OxidianDailyNotesPanel, OxidianFrontmatterPanel};
+
+pub fn init(fs: Arc<dyn Fs>, features: OxidianFeatures, cx: &mut App) {
+    oxidian_vault::init(fs.clone(), cx);
+    log::info!("Oxidian: vault index initialized");
+
+    // El flag de GPUI tiene prioridad sobre el config si está definido;
+    // si no está definido, cae al valor de OxidianFeatures.
+    let backlinks = cx.has_flag::<OxidianBacklinksPanel>()
+        .unwrap_or(features.backlinks_panel);
+    let daily = cx.has_flag::<OxidianDailyNotesPanel>()
+        .unwrap_or(features.daily_notes_panel);
+    let frontmatter = cx.has_flag::<OxidianFrontmatterPanel>()
+        .unwrap_or(features.frontmatter_panel);
+
+    if backlinks {
+        oxidian_backlinks::init(cx);
+        log::info!("Oxidian: backlinks panel initialized");
+    }
+    if daily {
+        oxidian_daily::init(cx);
+        log::info!("Oxidian: daily notes panel initialized");
+    }
+    if frontmatter {
+        oxidian_frontmatter::init(cx);
+        log::info!("Oxidian: frontmatter/tags panel initialized");
+    }
+}
+```
+
+**Nota:** Verificar la API exacta de `FeatureFlagAppExt` en el crate `feature_flags` antes de escribir este código. Puede ser `cx.is_staff()`, `cx.has_flag::<T>()`, u otro patrón. Adaptar según lo que existe, no inventar API.
+
+### 3.3 Verificación de compilación (Fase 3)
+
+```bash
+cargo check -p feature_flags 2>&1
+cargo check -p oxidian_init 2>&1
+cargo check -p zed 2>&1
+```
+
+---
+
+## Fase 4 — Keymap `oxidian-default.json`
+
+### 4.1 Crear el archivo de keymap
+
+Crear `assets/keymaps/oxidian-default.json`:
+
+```json
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      "ctrl-shift-b": "oxidian_backlinks::ToggleBacklinksPanel",
+      "ctrl-shift-d": "oxidian_daily::ToggleDailyNotesPanel",
+      "ctrl-shift-t": "oxidian_frontmatter::ToggleTagBrowserPanel",
+      "ctrl-shift-o": "oxidian_daily::OpenTodayNote"
+    }
+  },
+  {
+    "context": "Editor && extension == md",
+    "bindings": {
+      "ctrl-enter": "editor::OpenExcerpts"
+    }
+  }
+]
+```
+
+**Verificar antes de escribir los nombres de actions:**
+- `oxidian_backlinks::ToggleBacklinksPanel` — definida con `actions!(oxidian_backlinks, [ToggleBacklinksPanel])` en `oxidian_backlinks.rs` ✓
+- `oxidian_daily::ToggleDailyNotesPanel` — definida con `actions!(oxidian_daily, [ToggleDailyNotesPanel, OpenTodayNote])` en `oxidian_daily.rs` ✓
+- `oxidian_frontmatter::ToggleTagBrowserPanel` — definida con `actions!(oxidian_frontmatter, [ToggleTagBrowserPanel])` en `oxidian_frontmatter.rs` ✓
+
+Los nombres de actions en JSON usan el formato `crate::ActionName` separado por `::`.
+
+### 4.2 Registrar el keymap en el `AssetSource`
+
+Abrir `crates/assets/src/assets.rs` (o donde esté definido el `AssetSource` de Zed). Verificar cómo se cargan los keymaps existentes desde `assets/keymaps/`. Si los keymaps se cargan automáticamente por directorio, no se requiere cambio adicional. Si se listan explícitamente, agregar la entrada correspondiente.
+
+### 4.3 Cargar el keymap por default en `oxidian_init`
+
+En `crates/oxidian_init/src/oxidian_init.rs`, al final de `init()`, agregar la carga del keymap:
+
+```rust
+// Cargar keymap de Oxidian por default
+// Zed carga keymaps adicionales mediante settings::KeymapFile
+// Si el mecanismo de carga automática de assets/keymaps/ no lo incluye,
+// registrar aquí usando el API de settings.
+// INSTRUCCIÓN AL AGENTE: verificar cómo load_default_keymap o equivalente
+// funciona en este codebase antes de implementar. No inventar API.
+log::info!("Oxidian: keymap loaded");
+```
+
+**Nota para el agente:** El mecanismo de keymap en Zed puede variar. Inspeccionar `crates/settings/src/keymap_file.rs` y `crates/zed/src/zed.rs` (función `handle_keymap_file_changes`) para entender cómo se cargan keymaps adicionales. Si hay un mecanismo de keymap por default distinto al del usuario, usarlo. Si no existe mecanismo simple, dejar el archivo en `assets/keymaps/` y documentar que el usuario debe agregarlo a su keymap personal. No romper el sistema de keymap existente.
+
+### 4.4 Verificación (Fase 4)
+
+```bash
+cargo check -p zed 2>&1
+# Verificar que las actions son reconocidas en el command palette al correr
+```
+
+---
+
+## Fase 5 — Default workspace layout para vaults
+
+### 5.1 Crear función de layout inicial en `oxidian_init`
+
+El objetivo es que al abrir un vault Oxidian por primera vez, los paneles estén posicionados automáticamente: `DailyNotesPanel` izquierda, editor centro, `BacklinksPanel` derecha.
+
+En `crates/oxidian_init/src/oxidian_init.rs`, agregar una función pública:
+
+```rust
+use workspace::Workspace;
+use gpui::{Context, Entity, Window};
+
+/// Aplica el layout inicial de Oxidian a un workspace recién abierto sobre un vault.
+/// Llamar desde el observer de workspace en init() cuando se detecta un vault.
+///
+/// Layout: [DailyNotes | Editor | Backlinks]
+/// Panel izquierdo: DailyNotesPanel @ 280px
+/// Panel derecho: BacklinksPanel @ 300px
+pub fn apply_default_vault_layout(
+    workspace: &mut Workspace,
+    window: &mut Window,
+    cx: &mut Context<Workspace>,
+) {
+    use oxidian_backlinks::BacklinksPanel;
+    use oxidian_daily::DailyNotesPanel;
+    use workspace::dock::DockPosition;
+
+    // Abrir DailyNotesPanel en el dock izquierdo si no está ya visible
+    if workspace.panel::<DailyNotesPanel>(cx).is_none() {
+        workspace.toggle_panel_focus::<DailyNotesPanel>(window, cx);
+    }
+
+    // Abrir BacklinksPanel en el dock derecho si no está ya visible
+    if workspace.panel::<BacklinksPanel>(cx).is_none() {
+        workspace.toggle_panel_focus::<BacklinksPanel>(window, cx);
+    }
+
+    // Devolver el foco al editor
+    workspace.focus_active_item(window, cx);
+}
+```
+
+**Nota para el agente:** Verificar la API exacta de `Workspace` para panels antes de implementar. Los métodos `panel::<T>()`, `toggle_panel_focus::<T>()` y `focus_active_item()` deben existir en el crate `workspace`. Si los nombres difieren, usar los correctos del codebase. No inventar métodos.
+
+### 5.2 Conectar el layout al observer de workspace en `oxidian_vault`
+
+En `crates/oxidian_vault/src/oxidian_vault.rs`, dentro de la función `init()`, localizar el bloque `cx.observe_new(move |workspace: &mut workspace::Workspace, _window, cx|`. Actualmente ese bloque detecta el vault y crea el `VaultIndex`. Agregar al final del bloque, después de `cx.update_global::<ActiveVault, _>`:
+
+```rust
+// Solo aplicar el layout por default si es la primera vez que se abre este vault.
+// Usar una global flag o una clave en la DB de workspace para detectar "primera vez".
+// INSTRUCCIÓN AL AGENTE: implementar el guard de "primera vez" con:
+// 1. Intentar leer una clave en workspace::WorkspaceDb: "oxidian_layout_applied_{vault_root_hash}"
+// 2. Si no existe: llamar oxidian_init::apply_default_vault_layout y escribir la clave
+// 3. Si existe: no hacer nada
+// El hash del vault root puede ser un hash simple del PathBuf como string.
+// Si la DB API no permite esto fácilmente, usar un archivo marker en .oxidian/.layout_applied
+```
+
+**Alternativa más simple (recomendada para v1):** Crear el archivo `.oxidian/.layout_applied` en el vault root la primera vez que se aplica el layout. Si el archivo existe, no aplicar el layout. Esta solución no requiere tocar la DB de workspace.
+
+```rust
+// En oxidian_vault::init(), dentro del observe_new callback, después de crear el VaultIndex:
+let layout_marker = config.root.join(".oxidian").join(".layout_applied");
+if !layout_marker.exists() {
+    cx.defer(move |cx| {
+        // El defer garantiza que los panels ya están registrados
+        // Necesitamos acceso al workspace — usar el WeakEntity que ya tenemos
+        // INSTRUCCIÓN AL AGENTE: resolver cómo obtener el workspace handle aquí
+        // El observe_new callback tiene acceso a `workspace: &mut workspace::Workspace`
+        // Guardar un WeakEntity<Workspace> antes del spawn y usarlo en el defer
+        std::fs::create_dir_all(layout_marker.parent().unwrap()).ok();
+        std::fs::write(&layout_marker, "").ok();
+    });
+}
+```
+
+**Nota para el agente:** La implementación exacta del layout depende de cómo `workspace::Workspace` expone el control de panels en el contexto de `observe_new`. Inspeccionar cómo `oxidian_backlinks::init` llama `workspace.toggle_panel_focus` (lo hace dentro de `register_action`, no directamente en `observe_new`). Si aplicar el layout directamente en `observe_new` causa problemas de borrowing, alternativa: registrar una action `oxidian_vault::ApplyDefaultLayout` y dispararla programáticamente con `window.dispatch_action` desde un `cx.defer`.
+
+### 5.3 Verificación (Fase 5)
+
+```bash
+cargo check -p oxidian_vault 2>&1
+cargo check -p oxidian_init 2>&1
+cargo check -p zed 2>&1
+```
+
+Prueba manual: abrir el repo como vault (tiene `.git` pero no `.oxidian` — crear `.oxidian/` vacío para probar), verificar que los paneles aparecen posicionados y que en reinicios subsiguientes el layout no se resetea.
+
+---
+
+## Restricciones globales para el agente
+
+1. **No modificar ningún crate de Zed upstream** (cualquier crate no prefijaqdo con `oxidian_`), excepto:
+   - `crates/zed/src/main.rs` — solo el bloque `// OXIDIAN BEGIN` / `// OXIDIAN END`
+   - `Cargo.toml` raíz — solo las secciones `# OXIDIAN BEGIN` / `# OXIDIAN END`
+   - `crates/feature_flags/src/feature_flags.rs` — solo dentro de un bloque `// OXIDIAN BEGIN` / `// OXIDIAN END`
+
+2. **No duplicar init calls.** Los crates `vim`, `git_ui`, `markdown_preview`, `debugger_ui`, `collab_ui` ya son inicializados por Zed upstream. `oxidian_init` no los llama nunca.
+
+3. **Inspeccionar antes de implementar.** Antes de usar cualquier API de crates de Zed (workspace, feature_flags, settings, etc.), leer el archivo fuente correspondiente para confirmar nombres de métodos y firmas. No inventar API.
+
+4. **Mantener los marcadores.** Todo código añadido en archivos de Zed upstream lleva `// OXIDIAN BEGIN` y `// OXIDIAN END`. Todo código en `Cargo.toml` raíz lleva `# OXIDIAN BEGIN` y `# OXIDIAN END`.
+
+5. **Compilar después de cada fase.** Ejecutar `cargo check` al terminar cada fase antes de continuar. No acumular errores entre fases.
+
+6. **Edition 2024.** El workspace usa `edition = "2024"` en `[workspace.package]`. Usar sintaxis compatible (let chains, etc.).
+
+7. **`serde_json` ya es dependencia workspace.** No agregar `serde` o `serde_json` manualmente si ya están en `workspace.dependencies` — usar `.workspace = true`.
+
+---
+
+## Árbol de archivos a crear/modificar
+
+```
+CREAR:
+  crates/oxidian_init/
+  crates/oxidian_init/Cargo.toml
+  crates/oxidian_init/src/
+  crates/oxidian_init/src/oxidian_init.rs
+  assets/keymaps/oxidian-default.json
+  assets/oxidian/config.example.json
+
+MODIFICAR:
+  Cargo.toml                                          (workspace members + dependencies)
+  crates/zed/Cargo.toml                               (agregar oxidian_init dependency)
+  crates/zed/src/main.rs                              (bloque OXIDIAN BEGIN/END)
+  crates/oxidian_core/src/oxidian_core.rs             (OxidianFeatureFlags + VaultConfig.features)
+  crates/oxidian_vault/src/oxidian_vault.rs           (import_oxidian_features + layout trigger)
+  crates/feature_flags/src/feature_flags.rs           (flags de Oxidian)
+```
+
+---
+
+## Orden de ejecución recomendado
+
+```
+Fase 1 → cargo check → Fase 2 → cargo check → Fase 3 → cargo check → Fase 4 → cargo check → Fase 5 → cargo check → cargo build -p zed
+```
+
+Si alguna fase falla en `cargo check`, resolver antes de continuar.

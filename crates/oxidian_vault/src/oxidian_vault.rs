@@ -557,6 +557,8 @@ pub fn load_vault_config(root: PathBuf) -> VaultConfig {
         }
     }
 
+    import_oxidian_features(&mut config);
+
     config
 }
 
@@ -572,6 +574,38 @@ fn import_obsidian_config(config: &mut VaultConfig, app_json: &str) {
 
     // Obsidian's newFileFolderPath is intentionally ignored until Oxidian has a
     // first-class default note folder setting.
+}
+
+/// Lee el campo `"features"` de `.oxidian/config.json` y aplica los valores
+/// encontrados sobre los defaults de `OxidianFeatureFlags`.
+fn import_oxidian_features(config: &mut VaultConfig) {
+    let oxidian_config_path = config.root.join(".oxidian").join("config.json");
+    let Ok(content) = std::fs::read_to_string(&oxidian_config_path) else {
+        return; // Sin config.json — se usan defaults
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) else {
+        log::warn!("Oxidian: .oxidian/config.json no es JSON válido");
+        return;
+    };
+    let Some(features) = value.get("features") else {
+        return; // Sin sección "features" — se usan defaults
+    };
+
+    if let Some(v) = features.get("backlinks_panel").and_then(|v| v.as_bool()) {
+        config.features.backlinks_panel = v;
+    }
+    if let Some(v) = features.get("daily_notes_panel").and_then(|v| v.as_bool()) {
+        config.features.daily_notes_panel = v;
+    }
+    if let Some(v) = features.get("frontmatter_panel").and_then(|v| v.as_bool()) {
+        config.features.frontmatter_panel = v;
+    }
+    if let Some(v) = features.get("vim_mode").and_then(|v| v.as_bool()) {
+        config.features.vim_mode = v;
+    }
+    if let Some(v) = features.get("git_panel").and_then(|v| v.as_bool()) {
+        config.features.git_panel = v;
+    }
 }
 
 // OXIDIAN END

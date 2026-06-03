@@ -1,0 +1,9 @@
+{
+  "features": {
+    "backlinks_panel": true,
+    "daily_notes_panel": true,
+    "frontmatter_panel": true,
+    "vim_mode": false,
+    "git_panel": false
+  }
+}

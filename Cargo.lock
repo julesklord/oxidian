@@ -12989,6 +12989,7 @@ dependencies = [
  "oxidian_backlinks",
  "oxidian_daily",
  "oxidian_frontmatter",
+ "oxidian_init",
  "oxidian_vault",
  "parking_lot",
  "paths",
@@ -13117,6 +13118,22 @@ dependencies = [
  "oxidian_vault",
  "text",
  "ui",
+ "workspace",
+]
+
+[[package]]
+name = "oxidian_init"
+version = "0.1.0"
+dependencies = [
+ "feature_flags",
+ "fs",
+ "gpui",
+ "log",
+ "oxidian_backlinks",
+ "oxidian_daily",
+ "oxidian_frontmatter",
+ "oxidian_vault",
+ "settings",
  "workspace",
 ]
 

@@ -757,10 +757,11 @@ fn main() {
         terminal_view::init(cx);
         journal::init(app_state.clone(), cx);
         // OXIDIAN BEGIN
-        oxidian_vault::init(app_state.fs.clone(), cx);
-        oxidian_backlinks::init(cx);
-        oxidian_daily::init(cx);
-        oxidian_frontmatter::init(cx);
+        oxidian_init::init(
+            app_state.fs.clone(),
+            oxidian_init::OxidianFeatures::default(),
+            cx,
+        );
         // OXIDIAN END
         encoding_selector::init(cx);
         language_selector::init(cx);

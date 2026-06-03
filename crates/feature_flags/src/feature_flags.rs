@@ -294,3 +294,28 @@ impl FeatureFlagAppExt for App {
         })
     }
 }
+
+// OXIDIAN BEGIN
+
+/// Activa el panel de backlinks de Oxidian.
+pub struct OxidianBacklinksPanel;
+impl FeatureFlag for OxidianBacklinksPanel {
+    const NAME: &'static str = "oxidian-backlinks-panel";
+    type Value = PresenceFlag;
+}
+
+/// Activa el panel de notas diarias de Oxidian.
+pub struct OxidianDailyNotesPanel;
+impl FeatureFlag for OxidianDailyNotesPanel {
+    const NAME: &'static str = "oxidian-daily-notes-panel";
+    type Value = PresenceFlag;
+}
+
+/// Activa el panel de tags/propiedades de Oxidian.
+pub struct OxidianFrontmatterPanel;
+impl FeatureFlag for OxidianFrontmatterPanel {
+    const NAME: &'static str = "oxidian-frontmatter-panel";
+    type Value = PresenceFlag;
+}
+
+// OXIDIAN END

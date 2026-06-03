@@ -89,6 +89,37 @@ pub struct VaultConfig {
     pub marksman_binary: Option<PathBuf>,
     /// Whether telemetry and Zed cloud features are disabled.
     pub disable_cloud_features: bool,
+    /// Runtime feature flags for this vault.
+    pub features: OxidianFeatureFlags,
+}
+
+/// Feature flags runtime de Oxidian.
+/// Se deserializan desde `.oxidian/config.json` bajo la clave `"features"`.
+/// Todos los campos son opcionales — si ausentes, se usa el default.
+#[derive(Clone, Debug)]
+pub struct OxidianFeatureFlags {
+    /// Muestra el panel de backlinks. Default: true.
+    pub backlinks_panel: bool,
+    /// Muestra el panel de notas diarias. Default: true.
+    pub daily_notes_panel: bool,
+    /// Muestra el panel de tags/propiedades. Default: true.
+    pub frontmatter_panel: bool,
+    /// Activa vim mode (requiere que vim::init ya haya sido llamado por Zed). Default: false.
+    pub vim_mode: bool,
+    /// Activa el panel git de Zed (requiere git_ui::init). Default: false.
+    pub git_panel: bool,
+}
+
+impl Default for OxidianFeatureFlags {
+    fn default() -> Self {
+        Self {
+            backlinks_panel: true,
+            daily_notes_panel: true,
+            frontmatter_panel: true,
+            vim_mode: false,
+            git_panel: false,
+        }
+    }
 }
 
 impl VaultConfig {
@@ -100,6 +131,7 @@ impl VaultConfig {
             wiki_link_alias_separator: '|',
             marksman_binary: None,
             disable_cloud_features: true,
+            features: OxidianFeatureFlags::default(),
             root,
         }
     }
