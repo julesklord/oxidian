@@ -22,6 +22,8 @@ pub struct OxidianFeatures {
     pub daily_notes_panel: bool,
     /// Activa el panel de tags y propiedades (oxidian_frontmatter).
     pub frontmatter_panel: bool,
+    /// Habilita soporte para fórmulas LaTeX (math) en Markdown.
+    pub enable_math: bool,
 }
 
 impl Default for OxidianFeatures {
@@ -30,6 +32,7 @@ impl Default for OxidianFeatures {
             backlinks_panel: true,
             daily_notes_panel: true,
             frontmatter_panel: true,
+            enable_math: false,
         }
     }
 }
@@ -45,6 +48,7 @@ pub fn features_from_config(vault_root: Option<&std::path::Path>) -> OxidianFeat
         backlinks_panel: config.features.backlinks_panel,
         daily_notes_panel: config.features.daily_notes_panel,
         frontmatter_panel: config.features.frontmatter_panel,
+        enable_math: config.features.enable_math,
     }
 }
 
@@ -63,6 +67,12 @@ pub fn init(fs: Arc<dyn Fs>, features: OxidianFeatures, cx: &mut App) {
     // Siempre activo — es el núcleo, los paneles dependen de él
     oxidian_vault::init(fs.clone(), cx);
     log::info!("Oxidian: vault index initialized");
+
+    // OXIDIAN BEGIN — register render options global
+    cx.set_global(oxidian_core::OxidianRenderOptions {
+        enable_math: features.enable_math,
+    });
+    // OXIDIAN END
 
     // El flag de GPUI tiene prioridad sobre el config si está definido.
     // Como has_flag() devuelve bool, lo usamos con OR para que el config actúe como default.

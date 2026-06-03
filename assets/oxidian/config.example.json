@@ -4,6 +4,7 @@
     "daily_notes_panel": true,
     "frontmatter_panel": true,
     "vim_mode": false,
-    "git_panel": false
+    "git_panel": false,
+    "enable_math": false
   }
 }

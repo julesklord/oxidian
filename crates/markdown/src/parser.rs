@@ -49,6 +49,7 @@ pub(crate) struct ParsedMarkdownData {
     /// Populated by pre-scanning the raw text before pulldown-cmark.
     #[allow(dead_code)]
     pub wiki_links: Vec<(Range<usize>, WikiLink)>,
+    pub obsidian_callouts: std::collections::BTreeMap<usize, OxidianCallout>,
     // OXIDIAN END
 }
 
@@ -217,11 +218,32 @@ fn trim_metadata_range(source: &str, range: Range<usize>) -> Range<usize> {
     start..end
 }
 
+// OXIDIAN BEGIN — math options helper
+/// Retorna las opciones de parse, opcionalmente con math habilitado.
+pub(crate) fn parse_options(enable_math: bool) -> Options {
+    if enable_math {
+        PARSE_OPTIONS.union(Options::ENABLE_MATH)
+    } else {
+        PARSE_OPTIONS
+    }
+}
+// OXIDIAN END
+
 pub(crate) fn parse_markdown_with_options(
     text: &str,
     parse_html: bool,
     parse_heading_slugs: bool,
     parse_metadata_blocks: bool,
+) -> ParsedMarkdownData {
+    parse_markdown_with_options_ext(text, parse_html, parse_heading_slugs, parse_metadata_blocks, false)
+}
+
+pub(crate) fn parse_markdown_with_options_ext(
+    text: &str,
+    parse_html: bool,
+    parse_heading_slugs: bool,
+    parse_metadata_blocks: bool,
+    enable_math: bool,
 ) -> ParsedMarkdownData {
     let mut state = ParseState::default();
     let mut language_names = HashSet::default();
@@ -233,10 +255,11 @@ pub(crate) fn parse_markdown_with_options(
     let mut within_metadata = false;
     let mut current_metadata_block_start = None;
     let mut metadata_block_content_range: Option<Range<usize>> = None;
+    let base_options = parse_options(enable_math);
     let parse_options = if parse_metadata_blocks {
-        PARSE_OPTIONS.union(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS)
+        base_options.union(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS)
     } else {
-        PARSE_OPTIONS
+        base_options
     };
     let mut parser = Parser::new_ext(text, parse_options)
         .into_offset_iter()
@@ -652,6 +675,7 @@ pub(crate) fn parse_markdown_with_options(
 
     // OXIDIAN BEGIN — pre-scan and inject wiki-links
     let wiki_links = extract_wiki_links(text);
+    let obsidian_callouts = extract_obsidian_callouts(text);
     let events = inject_wiki_link_events(state.events, &wiki_links);
     // OXIDIAN END
 
@@ -666,9 +690,76 @@ pub(crate) fn parse_markdown_with_options(
         footnote_definitions,
         // OXIDIAN BEGIN
         wiki_links,
+        obsidian_callouts,
         // OXIDIAN END
     }
 }
+
+// OXIDIAN BEGIN — Obsidian callout pre-scanner
+
+/// Representa un callout de Obsidian con tipo arbitrario.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OxidianCallout {
+    /// El tipo del callout, ej: "warning", "info", "question"
+    pub kind: Arc<str>,
+    /// Si el callout es colapsable (empieza con `> [!tipo]-` o `> [!tipo]+`)
+    pub collapsible: bool,
+    /// Si el callout empieza colapsado
+    pub collapsed: bool,
+    /// El título del callout (la parte después de `[!tipo]` en la misma línea)
+    pub title: Option<Arc<str>>,
+    /// Offset de bytes donde empieza el bloque
+    pub byte_offset: usize,
+}
+
+/// Pre-escanea el texto buscando callouts de Obsidian no reconocidos por GFM.
+/// Retorna un map de byte_offset → OxidianCallout.
+pub(crate) fn extract_obsidian_callouts(text: &str) -> std::collections::BTreeMap<usize, OxidianCallout> {
+    let mut results = std::collections::BTreeMap::new();
+    let mut byte_offset: usize = 0;
+
+    for line in text.split('\n') {
+        let line_for_analysis = line.strip_suffix('\r').unwrap_or(line);
+        let trimmed = line_for_analysis.trim_start_matches(|c: char| c == '>' || c == ' ');
+
+        if let Some(inner) = trimmed.strip_prefix("[!") {
+            if let Some(end_bracket) = inner.find(']') {
+                let raw_kind = &inner[..end_bracket];
+                let after_bracket = &inner[end_bracket + 1..];
+
+                // Detectar si es collapsible
+                let (collapsible, collapsed, title_part) = match after_bracket.chars().next() {
+                    Some('-') => (true, true, after_bracket[1..].trim()),
+                    Some('+') => (true, false, after_bracket[1..].trim()),
+                    _ => (false, false, after_bracket.trim()),
+                };
+
+                let kind_lower = raw_kind.to_lowercase();
+                // Solo procesar si es un tipo Obsidian (no GFM ya manejado)
+                let is_gfm = matches!(kind_lower.as_str(), "note" | "tip" | "important" | "warning" | "caution");
+
+                if !is_gfm {
+                    results.insert(byte_offset, OxidianCallout {
+                        kind: Arc::from(kind_lower.as_str()),
+                        collapsible,
+                        collapsed,
+                        title: if title_part.is_empty() {
+                            None
+                        } else {
+                            Some(Arc::from(title_part))
+                        },
+                        byte_offset,
+                    });
+                }
+            }
+        }
+
+        byte_offset += line.len() + 1;
+    }
+
+    results
+}
+// OXIDIAN END — Obsidian callout pre-scanner
 
 // OXIDIAN BEGIN — wiki-link pre-scanner
 

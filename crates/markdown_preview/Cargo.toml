@@ -31,6 +31,10 @@ util.workspace = true
 workspace.workspace = true
 zed_actions.workspace = true
 
+# OXIDIAN BEGIN
+oxidian_core.workspace = true
+# OXIDIAN END
+
 [dev-dependencies]
 editor = { workspace = true, features = ["test-support"] }
 fs.workspace = true

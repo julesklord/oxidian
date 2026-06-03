@@ -108,6 +108,8 @@ pub struct OxidianFeatureFlags {
     pub vim_mode: bool,
     /// Activa el panel git de Zed (requiere git_ui::init). Default: false.
     pub git_panel: bool,
+    /// Habilita soporte para fórmulas matemáticas LaTeX en Markdown. Default: false.
+    pub enable_math: bool,
 }
 
 impl Default for OxidianFeatureFlags {
@@ -118,9 +120,20 @@ impl Default for OxidianFeatureFlags {
             frontmatter_panel: true,
             vim_mode: false,
             git_panel: false,
+            enable_math: false,
         }
     }
 }
+
+// OXIDIAN BEGIN — render options global
+/// Opciones de renderizado de Oxidian, registradas como global GPUI por oxidian_init.
+#[derive(Clone, Debug, Default)]
+pub struct OxidianRenderOptions {
+    pub enable_math: bool,
+}
+
+impl gpui::Global for OxidianRenderOptions {}
+// OXIDIAN END
 
 impl VaultConfig {
     pub fn default_for_root(root: PathBuf) -> Self {
@@ -211,6 +224,15 @@ impl gpui::Global for WikiLinkResolver {}
 // OXIDIAN BEGIN
 pub struct MarksmanBinaryPath(pub Option<PathBuf>);
 impl gpui::Global for MarksmanBinaryPath {}
+
+/// GPUI global holding the active silo's configuration.
+#[derive(Clone, Debug)]
+pub struct ActiveSilo(pub VaultConfig);
+
+impl gpui::Global for ActiveSilo {}
+
+/// Alias for VaultConfig.
+pub type SiloConfig = VaultConfig;
 // OXIDIAN END
 
 #[cfg(test)]

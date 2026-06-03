@@ -41,7 +41,7 @@ use language::{CharClassifier, Language, LanguageRegistry, Rope};
 use parser::CodeBlockMetadata;
 use parser::{
     MarkdownEvent, MarkdownTag, MarkdownTagEnd, ParsedMetadataBlock, parse_links_only,
-    parse_markdown_with_options,
+    parse_markdown_with_options, parse_markdown_with_options_ext,
 };
 use pulldown_cmark::{Alignment, BlockQuoteKind};
 use sum_tree::TreeMap;
@@ -352,6 +352,9 @@ pub struct MarkdownOptions {
     pub render_mermaid_diagrams: bool,
     pub parse_heading_slugs: bool,
     pub render_metadata_blocks: bool,
+    // OXIDIAN BEGIN
+    pub enable_math: bool,
+    // OXIDIAN END
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -850,6 +853,9 @@ impl Markdown {
         let should_render_mermaid_diagrams = self.options.render_mermaid_diagrams;
         let should_parse_heading_slugs = self.options.parse_heading_slugs;
         let should_parse_metadata_blocks = self.options.render_metadata_blocks;
+        // OXIDIAN BEGIN
+        let enable_math = self.options.enable_math;
+        // OXIDIAN END
         let language_registry = self.language_registry.clone();
         let fallback = self.fallback_code_block_language.clone();
 
@@ -867,16 +873,18 @@ impl Markdown {
                         mermaid_diagrams: BTreeMap::default(),
                         heading_slugs: HashMap::default(),
                         footnote_definitions: HashMap::default(),
+                        obsidian_callouts: BTreeMap::default(),
                     },
                     Default::default(),
                 );
             }
 
-            let parsed = parse_markdown_with_options(
+            let parsed = parse_markdown_with_options_ext(
                 &source,
                 should_parse_html,
                 should_parse_heading_slugs,
                 should_parse_metadata_blocks,
+                enable_math,
             );
             let events = parsed.events;
             let language_names = parsed.language_names;
@@ -886,6 +894,7 @@ impl Markdown {
             let metadata_blocks = parsed.metadata_blocks;
             let heading_slugs = parsed.heading_slugs;
             let footnote_definitions = parsed.footnote_definitions;
+            let obsidian_callouts = parsed.obsidian_callouts;
             let mermaid_diagrams = if should_render_mermaid_diagrams {
                 extract_mermaid_diagrams(&source, &events)
             } else {
@@ -955,6 +964,7 @@ impl Markdown {
                     mermaid_diagrams,
                     heading_slugs,
                     footnote_definitions,
+                    obsidian_callouts,
                 },
                 images_by_source_offset,
             )
@@ -1084,6 +1094,9 @@ pub struct ParsedMarkdown {
     pub(crate) mermaid_diagrams: BTreeMap<usize, ParsedMarkdownMermaidDiagram>,
     pub heading_slugs: HashMap<SharedString, usize>,
     pub footnote_definitions: HashMap<SharedString, usize>,
+    // OXIDIAN BEGIN
+    pub(crate) obsidian_callouts: BTreeMap<usize, crate::parser::OxidianCallout>,
+    // OXIDIAN END
 }
 
 impl ParsedMarkdown {
@@ -1357,6 +1370,73 @@ impl MarkdownElement {
         builder.pop_text_style();
     }
 
+    // OXIDIAN BEGIN — Obsidian callout style mapping and rendering
+    fn push_obsidian_callout(
+        &self,
+        builder: &mut MarkdownElementBuilder,
+        callout: &crate::parser::OxidianCallout,
+        range: &Range<usize>,
+        markdown_end: usize,
+        cx: &App,
+    ) {
+        let (icon_name, border_color) = self.callout_style_for_kind(&callout.kind, cx);
+
+        // Label is the title if provided, otherwise capitalize the kind
+        let header_label = if let Some(title) = &callout.title {
+            title.to_string()
+        } else {
+            // Capitalize the kind (e.g. "info" -> "Info")
+            let mut chars = callout.kind.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        };
+
+        let header = h_flex()
+            .gap_1()
+            .items_center()
+            .mb_1()
+            .child(
+                Icon::new(icon_name)
+                    .size(IconSize::Small)
+                    .color(Color::Custom(border_color)),
+            )
+            .child(
+                Label::new(header_label)
+                    .color(Color::Custom(border_color))
+                    .weight(FontWeight::BOLD),
+            )
+            .into_any_element();
+
+        let block_div = div()
+            .pl_4()
+            .mb_2()
+            .border_l_4()
+            .border_color(border_color)
+            .child(header);
+
+        builder.push_text_style(self.style.block_quote.clone());
+        builder.push_div(block_div, range, markdown_end);
+    }
+
+    fn callout_style_for_kind(&self, kind: &str, cx: &App) -> (ui::IconName, gpui::Hsla) {
+        let status = cx.theme().status();
+        let colors = cx.theme().colors();
+        match kind {
+            "abstract" | "summary" | "tldr" => (ui::IconName::FileDoc, colors.text_accent),
+            "info" | "todo" => (ui::IconName::Info, status.info),
+            "success" | "check" | "done" => (ui::IconName::Check, status.success),
+            "question" | "help" | "faq" => (ui::IconName::CircleHelp, status.warning),
+            "failure" | "fail" | "missing" => (ui::IconName::XCircle, status.error),
+            "danger" | "error" | "bug" => (ui::IconName::Warning, status.error),
+            "example" => (ui::IconName::Book, colors.text_accent),
+            "quote" | "cite" => (ui::IconName::Quote, colors.text_muted),
+            _ => (ui::IconName::Info, colors.text_muted),  // fallback
+        }
+    }
+    // OXIDIAN END
+
     fn push_markdown_block_quote(
         &self,
         builder: &mut MarkdownElementBuilder,
@@ -1419,48 +1499,70 @@ impl MarkdownElement {
     ) {
         let content_range = &metadata_block.content_range;
         if let Some(rows) = metadata_block.rows.as_deref() {
+            // OXIDIAN BEGIN — frontmatter properties panel
+            let colors = cx.theme().colors();
             builder.push_div(
                 div()
-                    .grid()
-                    .grid_cols(2)
-                    .w_full()
-                    .mb_2()
+                    .rounded_md()
                     .border_1()
-                    .border_color(cx.theme().colors().border)
-                    .rounded_sm()
-                    .overflow_hidden(),
+                    .border_color(colors.border_variant)
+                    .bg(colors.surface_background)
+                    .mb_3()
+                    .p_3()
+                    .flex()
+                    .flex_col()
+                    .gap_1(),
                 content_range,
                 markdown_end,
             );
 
-            for (row_index, row) in rows.iter().enumerate() {
-                self.push_metadata_cell(
-                    builder,
-                    source,
-                    row.key.clone(),
+            for row in rows {
+                builder.push_div(
+                    div()
+                        .flex()
+                        .gap_3()
+                        .py_0p5(),
                     content_range,
                     markdown_end,
-                    MetadataCellStyle {
-                        row_index,
-                        is_key: true,
-                    },
-                    cx,
                 );
-                self.push_metadata_cell(
-                    builder,
-                    source,
-                    row.value.clone(),
-                    content_range,
-                    markdown_end,
-                    MetadataCellStyle {
-                        row_index,
-                        is_key: false,
-                    },
-                    cx,
-                );
-            }
 
-            builder.pop_div();
+                // Key
+                builder.push_div(
+                    div()
+                        .w_24()
+                        .flex_shrink_0(),
+                    content_range,
+                    markdown_end,
+                );
+                builder.push_text_style(TextStyleRefinement {
+                    color: Some(colors.text_muted),
+                    font_weight: Some(FontWeight::MEDIUM),
+                    font_size: Some(rems(0.85).into()),
+                    ..Default::default()
+                });
+                builder.push_text(&source[row.key.clone()], row.key.clone());
+                builder.pop_text_style();
+                builder.pop_div(); // end key
+
+                // Value
+                builder.push_div(
+                    div()
+                        .flex_1(),
+                    content_range,
+                    markdown_end,
+                );
+                builder.push_text_style(TextStyleRefinement {
+                    font_size: Some(rems(0.85).into()),
+                    ..Default::default()
+                });
+                builder.push_text(&source[row.value.clone()], row.value.clone());
+                builder.pop_text_style();
+                builder.pop_div(); // end value
+
+                builder.pop_div(); // end row
+            }
+            builder.pop_div(); // end container
+            // OXIDIAN END
         } else {
             let mut metadata_block = div().w_full().rounded_md();
             metadata_block.style().refine(&self.style.code_block);
@@ -1475,47 +1577,6 @@ impl MarkdownElement {
         }
     }
 
-    fn push_metadata_cell(
-        &self,
-        builder: &mut MarkdownElementBuilder,
-        source: &str,
-        text_range: Range<usize>,
-        block_range: &Range<usize>,
-        markdown_end: usize,
-        cell_style: MetadataCellStyle,
-        cx: &App,
-    ) {
-        builder.push_div(
-            div()
-                .flex()
-                .flex_col()
-                .min_w_0()
-                .px_2()
-                .py_1()
-                .border_color(cx.theme().colors().border)
-                .when(cell_style.row_index > 0, |this| this.border_t_1())
-                .when(!cell_style.is_key, |this| this.border_l_1())
-                .when(cell_style.is_key, |this| {
-                    this.bg(cx.theme().colors().panel_background)
-                }),
-            block_range,
-            markdown_end,
-        );
-
-        let text_style = if cell_style.is_key {
-            TextStyleRefinement {
-                color: Some(cx.theme().colors().text_muted),
-                font_weight: Some(FontWeight::SEMIBOLD),
-                ..Default::default()
-            }
-        } else {
-            TextStyleRefinement::default()
-        };
-        builder.push_text_style(text_style);
-        builder.push_text(&source[text_range.clone()], text_range);
-        builder.pop_text_style();
-        builder.pop_div();
-    }
 
     fn push_markdown_list_item(
         &self,
@@ -2035,12 +2096,33 @@ impl Element for MarkdownElement {
                             );
                         }
                         MarkdownTag::BlockQuote(kind) => {
-                            self.push_markdown_block_quote(
-                                &mut builder,
-                                *kind,
-                                range,
-                                markdown_end,
-                            );
+                            // OXIDIAN BEGIN — Obsidian callout render
+                            if kind.is_none() {
+                                if let Some(callout) = parsed_markdown.obsidian_callouts.get(&range.start) {
+                                    self.push_obsidian_callout(
+                                        &mut builder,
+                                        callout,
+                                        range,
+                                        markdown_end,
+                                        cx,
+                                    );
+                                } else {
+                                    self.push_markdown_block_quote(
+                                        &mut builder,
+                                        *kind,
+                                        range,
+                                        markdown_end,
+                                    );
+                                }
+                            } else {
+                                self.push_markdown_block_quote(
+                                    &mut builder,
+                                    *kind,
+                                    range,
+                                    markdown_end,
+                                );
+                            }
+                            // OXIDIAN END
                         }
                         MarkdownTag::CodeBlock { kind, .. } => {
                             if render_mermaid_diagrams
@@ -2893,10 +2975,6 @@ fn alignment_to_text_align(alignment: Alignment) -> Option<TextAlign> {
     }
 }
 
-struct MetadataCellStyle {
-    row_index: usize,
-    is_key: bool,
-}
 
 struct MarkdownElementBuilder {
     div_stack: Vec<AnyDiv>,

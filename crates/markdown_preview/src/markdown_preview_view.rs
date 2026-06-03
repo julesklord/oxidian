@@ -32,6 +32,10 @@ use workspace::searchable::{
 };
 use workspace::{OpenOptions, OpenVisible, Pane, Workspace};
 
+// OXIDIAN BEGIN
+use oxidian_core::WikiLinkResolver;
+// OXIDIAN END
+
 use crate::{
     OpenFollowingPreview, OpenPreview, OpenPreviewToTheSide, ScrollDown, ScrollDownByItem,
 };
@@ -214,6 +218,12 @@ impl MarkdownPreviewView {
         cx: &mut Context<Workspace>,
     ) -> Entity<Self> {
         cx.new(|cx| {
+            // OXIDIAN BEGIN — leer render options
+            let enable_math = cx.try_global::<oxidian_core::OxidianRenderOptions>()
+                .map(|opts| opts.enable_math)
+                .unwrap_or(false);
+            // OXIDIAN END
+
             let markdown = cx.new(|cx| {
                 Markdown::new_with_options(
                     SharedString::default(),
@@ -224,6 +234,7 @@ impl MarkdownPreviewView {
                         render_mermaid_diagrams: true,
                         parse_heading_slugs: true,
                         render_metadata_blocks: true,
+                        enable_math, // OXIDIAN
                         ..Default::default()
                     },
                     cx,
@@ -621,6 +632,11 @@ impl MarkdownPreviewView {
             MarkdownStyle::themed(MarkdownFont::Preview, window, cx)
         };
 
+        // OXIDIAN BEGIN — obtener Silo root para resolver assets
+        let silo_root: Option<PathBuf> = cx.try_global::<oxidian_core::ActiveSilo>()
+            .map(|silo| silo.0.root.clone());
+        // OXIDIAN END
+
         let mut markdown_element = MarkdownElement::new(self.markdown.clone(), markdown_style)
             .code_block_renderer(CodeBlockRenderer::Default {
                 copy_button_visibility: CopyButtonVisibility::VisibleOnHover,
@@ -631,11 +647,15 @@ impl MarkdownPreviewView {
             .show_root_block_markers()
             .image_resolver({
                 let base_directory = self.base_directory.clone();
+                // OXIDIAN BEGIN
+                let silo_root = silo_root.clone();
+                // OXIDIAN END
                 move |dest_url| {
                     resolve_preview_image(
                         dest_url,
                         base_directory.as_deref(),
                         workspace_directory.as_deref(),
+                        silo_root.as_deref(), // OXIDIAN
                     )
                 }
             })
@@ -726,6 +746,36 @@ impl MarkdownPreviewView {
     }
 }
 
+// OXIDIAN BEGIN — wiki-link URL detection
+/// Detecta si una URL proviene de un wiki-link inyectado por oxidian_vault.
+/// Un wiki-link no tiene esquema URI, no tiene separadores de path, y no tiene
+/// extensión de archivo reconocida. Ejemplos:
+///   "Mi Nota"          → wiki-link ✓
+///   "Proyectos/Alpha"  → NO (tiene '/')
+///   "notes.md"         → NO (tiene extensión)
+///   "https://..."      → NO (tiene esquema)
+fn is_wiki_link_url(url: &str) -> bool {
+    if url.starts_with("http://")
+        || url.starts_with("https://")
+        || url.starts_with("file://")
+        || url.starts_with("zed://")
+        || url.starts_with("data:")
+    {
+        return false;
+    }
+    // Si contiene '/' o '\' es un path relativo, no un wiki-link
+    if url.contains('/') || url.contains('\\') {
+        return false;
+    }
+    // Si tiene extensión de archivo conocida, es un link a archivo regular
+    let known_extensions = [".md", ".txt", ".pdf", ".png", ".jpg", ".jpeg", ".svg", ".gif"];
+    if known_extensions.iter().any(|ext| url.ends_with(ext)) {
+        return false;
+    }
+    true
+}
+// OXIDIAN END — wiki-link URL detection
+
 fn handle_url_click(
     url: SharedString,
     view: &WeakEntity<MarkdownPreviewView>,
@@ -734,6 +784,40 @@ fn handle_url_click(
     window: &mut Window,
     cx: &mut App,
 ) {
+    // OXIDIAN BEGIN — wiki-link navigation
+    // Un wiki-link tiene dest_url sin esquema y sin extensión de archivo.
+    // Detectarlo: no empieza con http/https/file/zed, no contiene '/', no tiene extensión .md/.txt etc.
+    // El WikiLinkResolver global (registrado por oxidian_vault) lo convierte a PathBuf.
+    if is_wiki_link_url(url.as_ref()) {
+        if let Some(resolver) = cx.try_global::<WikiLinkResolver>() {
+            // WikiLinkResolver.0 es Arc<dyn Fn(&str, &mut Window, &mut App) -> Option<PathBuf>>
+            let target = url.as_ref().to_string();
+            let resolver_fn = resolver.0.clone();
+            let workspace = workspace.clone();
+            window.defer(cx, move |window, cx| {
+                if let Some(path) = (resolver_fn)(&target, window, cx) {
+                    if let Some(workspace) = workspace.upgrade() {
+                        workspace.update(cx, |workspace, cx| {
+                            workspace.open_abs_path(
+                                path,
+                                workspace::OpenOptions {
+                                    visible: Some(workspace::OpenVisible::None),
+                                    ..Default::default()
+                                },
+                                window,
+                                cx,
+                            ).detach();
+                        });
+                    }
+                } else {
+                    log::warn!("Oxidian: wiki-link target '{}' not found in Silo", target);
+                }
+            });
+            return;
+        }
+    }
+    // OXIDIAN END — wiki-link navigation
+
     let (path_part, fragment) = split_local_url_fragment(url.as_ref());
 
     if path_part.is_empty() {
@@ -842,6 +926,7 @@ fn resolve_preview_image(
     dest_url: &str,
     base_directory: Option<&Path>,
     workspace_directory: Option<&Path>,
+    silo_root: Option<&Path>, // OXIDIAN
 ) -> Option<ImageSource> {
     if dest_url.starts_with("data:") {
         return None;
@@ -874,13 +959,31 @@ fn resolve_preview_image(
     }
 
     let path = if Path::new(&decoded).is_absolute() {
-        PathBuf::from(decoded)
+        Some(PathBuf::from(&decoded))
     } else {
-        base_directory?.join(decoded)
+        base_directory.map(|dir| dir.join(&decoded))
     };
 
-    path.exists()
-        .then(|| ImageSource::Resource(Resource::Path(Arc::from(path.as_path()))))
+    if let Some(path) = &path {
+        if path.exists() {
+            return Some(ImageSource::Resource(Resource::Path(Arc::from(path.as_path()))));
+        }
+    }
+
+    // OXIDIAN BEGIN — Silo asset fallback
+    if let Some(silo_root) = silo_root {
+        let candidate = silo_root.join(&decoded);
+        if candidate.exists() {
+            return Some(ImageSource::Resource(Resource::Path(Arc::from(candidate.as_path()))));
+        }
+        let assets_candidate = silo_root.join("_assets").join(&decoded);
+        if assets_candidate.exists() {
+            return Some(ImageSource::Resource(Resource::Path(Arc::from(assets_candidate.as_path()))));
+        }
+    }
+    // OXIDIAN END — Silo asset fallback
+
+    None
 }
 
 impl Focusable for MarkdownPreviewView {
@@ -1275,6 +1378,7 @@ mod tests {
                 workspace_root_relative_path,
                 Some(&base_directory),
                 Some(workspace_directory),
+                None,
             );
             assert_resolved_preview_image_path(resolved, image_file.as_path());
         }
@@ -1283,6 +1387,7 @@ mod tests {
             "/missing_image.png",
             Some(&base_directory),
             Some(workspace_directory),
+            None,
         );
         assert!(missing.is_none());
     }

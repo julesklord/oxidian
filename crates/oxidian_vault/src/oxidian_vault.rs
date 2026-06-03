@@ -606,6 +606,9 @@ fn import_oxidian_features(config: &mut VaultConfig) {
     if let Some(v) = features.get("git_panel").and_then(|v| v.as_bool()) {
         config.features.git_panel = v;
     }
+    if let Some(v) = features.get("enable_math").and_then(|v| v.as_bool()) {
+        config.features.enable_math = v;
+    }
 }
 
 // OXIDIAN END
@@ -687,6 +690,7 @@ pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
             cx.set_global(oxidian_core::MarksmanBinaryPath(
                 config.marksman_binary.clone(),
             ));
+            cx.set_global(oxidian_core::ActiveSilo(config.clone()));
             let index = cx.new(|cx| VaultIndex::new(config, fs.clone(), cx));
 
             // Subscribe to project events to re-index notes in real-time!
