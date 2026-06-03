@@ -13,13 +13,13 @@ path = "src/oxidian_init.rs"
 doctest = false
 
 [dependencies]
-fs.workspace = true
-gpui.workspace = true
-log.workspace = true
-feature_flags.workspace = true
-settings.workspace = true
-workspace.workspace = true
-oxidian_vault    = { path = "../oxidian_vault" }
+fs = { workspace = true }
+gpui = { workspace = true }
+log = { workspace = true }
+feature_flags = { workspace = true }
+settings = { workspace = true }
+workspace = { workspace = true }
+oxidian_vault = { path = "../oxidian_vault" }
 oxidian_backlinks = { path = "../oxidian_backlinks" }
-oxidian_daily    = { path = "../oxidian_daily" }
+oxidian_daily = { path = "../oxidian_daily" }
 oxidian_frontmatter = { path = "../oxidian_frontmatter" }

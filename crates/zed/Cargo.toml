@@ -140,11 +140,11 @@ install_cli.workspace = true
 journal.workspace = true
 json_schema_store.workspace = true
 # OXIDIAN BEGIN
-oxidian_vault.workspace = true
-oxidian_backlinks.workspace = true
-oxidian_daily.workspace = true
-oxidian_frontmatter.workspace = true
-oxidian_init.workspace = true
+oxidian_vault = { workspace = true }
+oxidian_backlinks = { workspace = true }
+oxidian_daily = { workspace = true }
+oxidian_frontmatter = { workspace = true }
+oxidian_init = { workspace = true }
 # OXIDIAN END
 keymap_editor.workspace = true
 language.workspace = true
