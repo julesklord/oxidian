@@ -5,47 +5,57 @@ description: Create and manage a Zed Business organization, invite members, and 
 
 # Organizations
 
-Zed organizations consolidate team subscriptions, member lists, billing, and administrative controls into one interface.
+A Zed organization is your team's Zed Business subscription, with members, billing, and admin controls in one place.
 
 ## Personal Organizations
 
-Zed accounts include a personal organization created during sign-up. This space maintains distinct subscriptions, billing records, and settings. Joining a team organization does not alter these personal settings.
+Every Zed account gets a personal organization at sign-up. It has its own subscription, billing, and settings, separate from any team you belong to.
 
-The Zed editor title bar displays the active organization name. Selecting this menu allows users to view and switch between available organizations.
+Your personal organization always stays active. Joining a Zed Business organization doesn't replace or affect it.
+
+In the Zed editor, an organization menu in the title bar shows your current organization by name. Click it to see all your organizations and switch between them.
 
 ## Multiple Organizations
 
-Accounts support simultaneous membership across multiple organizations. New invitations add to current memberships. Each entity operates with independent billing and administrative permissions.
+A Zed account can belong to more than one organization at the same time. If you're invited to a second organization while already a member of one, you join both. Each organization has its own subscription, billing, and admin controls.
 
-Use the organization switcher in the top-left corner of the dashboard to move between groups. In the editor, click the organization name in the title bar to switch views.
+To switch organizations in the dashboard, use the org switcher in the top-left corner. In the Zed editor, click the organization name in the title bar to see all your organizations and move between them.
 
 ## Creating an organization
 
-Visit [dashboard.zed.dev/create-organization](https://dashboard.zed.dev/create-organization) to start a new organization. The creator assumes the owner role. Users without stored payment methods complete a checkout process before the dashboard opens the member invitation page.
+To create an organization, go to [dashboard.zed.dev/create-organization](https://dashboard.zed.dev/create-organization). The person who creates the organization becomes its owner.
+
+If you don't have a payment method on file, you'll be taken through a checkout flow. If one is already on file, that step is skipped. After that, you'll land on an invite page to add your first members.
 
 ## Inviting members
 
-Owners send invitations via email. Acceptance links the recipient's Zed account to the organization subscription.
+Members are invited by email address. When an invite is accepted, the member's Zed account joins the organization. Owners, admins, and members count toward paid Business seats. Billing Managers can access billing without a paid Business seat.
 
-1. Open the Members page in the organization dashboard.
+To invite a member:
+
+1. Go to the Members page in your organization dashboard.
 2. Select **+ Invite Member**.
-3. Enter the email address and assign a role.
-4. The system sends a join link to the recipient.
+3. Enter the member's email address and choose a role.
+4. They'll receive an email with a link to join.
 
-Recipients authenticate using GitHub to complete the process. The [Roles & Permissions](../roles.md) page details specific capabilities for each role.
+After accepting, they authenticate with their GitHub account and are added to the organization. For details on what each role can do, see [Roles & Permissions](../roles.md).
 
 ## Managing members
 
-Owners and admins control membership through the dashboard Members page.
+Owners and admins can manage members from the Members page in the dashboard.
 
 ### Changing a member's role
 
-Locate the user on the Members page. Select a new role from the member menu.
+1. On the Members page, find the member.
+2. Open the menu and select a new role.
 
 ### Removing a member
 
-Selecting **Remove** terminates user access to organization-managed settings and the group subscription. This action does not impact the user's personal account or other memberships.
+1. On the Members page, find the member.
+2. Select **Remove** and confirm.
+
+Removing a member ends their access to the organization's subscription, billing, and admin-managed settings for that organization. Their personal Zed account and any other organization memberships are unaffected.
 
 ## Organization Dashboard
 
-The dashboard provides views for member roles and billing details. Access is restricted to owners and admins.
+The dashboard shows your members, roles, and billing. Owners and admins have full access. Billing Managers have billing access. Members have no dashboard access.
