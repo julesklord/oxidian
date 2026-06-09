@@ -6005,6 +6005,21 @@ fn panels_page() -> SettingsPage {
         ]
     }
 
+    fn oxidian_panels_section() -> [SettingsPageItem; 2] {
+        [
+            SettingsPageItem::SectionHeader("Oxidian Panels"),
+            SettingsPageItem::SubPageLink(SubPageLink {
+                title: "Oxidian Panels".into(),
+                r#type: Default::default(),
+                description: Some("Configure Oxidian's features and panels.".into()),
+                json_path: None,
+                in_json: false,
+                files: USER,
+                render: crate::pages::render_oxidian_panels_page,
+            }),
+        ]
+    }
+
     SettingsPage {
         title: "Panels",
         items: concat_sections![
@@ -6015,6 +6030,7 @@ fn panels_page() -> SettingsPage {
             debugger_panel_section(),
             collaboration_panel_section(),
             agent_panel_section(),
+            oxidian_panels_section(),
         ],
     }
 }

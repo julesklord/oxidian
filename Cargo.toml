@@ -913,7 +913,7 @@ webrtc-sys = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev 
 
 [profile.dev]
 split-debuginfo = "unpacked"
-incremental = true
+incremental = false
 codegen-units = 16
 debug = "limited"
 

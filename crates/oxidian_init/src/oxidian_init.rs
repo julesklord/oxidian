@@ -24,6 +24,8 @@ pub struct OxidianFeatures {
     pub frontmatter_panel: bool,
     /// Habilita soporte para fórmulas LaTeX (math) en Markdown.
     pub enable_math: bool,
+    /// Whether new panels should default to flexible sizing
+    pub panels_default_flexible: bool,
 }
 
 impl Default for OxidianFeatures {
@@ -33,12 +35,13 @@ impl Default for OxidianFeatures {
             daily_notes_panel: true,
             frontmatter_panel: true,
             enable_math: false,
+            panels_default_flexible: true,
         }
     }
 }
 
-/// Construye OxidianFeatures leyendo .oxidian/config.json si existe un vault activo.
-/// Si no hay vault detectado, usa defaults conservadores.
+/// Construye OxidianFeatures leyendo .oxidian/config.json si existe un silo activo.
+/// Si no hay silo detectado, usa defaults conservadores.
 pub fn features_from_config(vault_root: Option<&std::path::Path>) -> OxidianFeatures {
     let Some(root) = vault_root else {
         return OxidianFeatures::default();
@@ -49,6 +52,9 @@ pub fn features_from_config(vault_root: Option<&std::path::Path>) -> OxidianFeat
         daily_notes_panel: config.features.daily_notes_panel,
         frontmatter_panel: config.features.frontmatter_panel,
         enable_math: config.features.enable_math,
+        // Respect new default for panel flexibility if present in silo config
+        // (stored under features.panels_default_flexible)
+        panels_default_flexible: config.features.panels_default_flexible,
     }
 }
 
@@ -66,7 +72,7 @@ pub fn features_from_config(vault_root: Option<&std::path::Path>) -> OxidianFeat
 pub fn init(fs: Arc<dyn Fs>, features: OxidianFeatures, cx: &mut App) {
     // Siempre activo — es el núcleo, los paneles dependen de él
     oxidian_vault::init(fs.clone(), cx);
-    log::info!("Oxidian: vault index initialized");
+    log::info!("Oxidian: silo index initialized");
 
     // OXIDIAN BEGIN — register render options global
     cx.set_global(oxidian_core::OxidianRenderOptions {
@@ -105,7 +111,7 @@ pub fn init(fs: Arc<dyn Fs>, features: OxidianFeatures, cx: &mut App) {
         log::warn!("Oxidian: failed to load default keymap");
     }
 
-    // Registrar observer para aplicar el layout por default en nuevos vaults
+    // Registrar observer para aplicar el layout por default en nuevos silos
     cx.observe_new(move |workspace: &mut Workspace, window, cx| {
         let Some(worktree) = workspace.visible_worktrees(cx).next() else {
             return;

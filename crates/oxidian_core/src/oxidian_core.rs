@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-/// A note's stable identifier — its path relative to the vault root, without extension.
-/// For example, a note at `<vault>/projects/alpha.md` has id `projects/alpha`.
+/// A note's stable identifier — its path relative to the silo root, without extension.
+/// For example, a note at `<silo>/projects/alpha.md` has id `projects/alpha`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NoteId(pub Arc<str>);
 
@@ -72,14 +72,14 @@ impl WikiLink {
     }
 }
 
-/// Vault-level configuration, stored in `.oxidian/config.json` at the vault root.
+/// Silo-level configuration, stored in `.oxidian/config.json` at the silo root.
 #[derive(Clone, Debug)]
 pub struct VaultConfig {
-    /// Absolute path to the vault root directory.
+    /// Absolute path to the silo root directory.
     pub root: PathBuf,
-    /// Path to the templates directory, relative to vault root.
+    /// Path to the templates directory, relative to silo root.
     pub templates_dir: PathBuf,
-    /// Path where daily notes are stored, relative to vault root.
+    /// Path where daily notes are stored, relative to silo root.
     pub daily_notes_dir: PathBuf,
     /// Date format string for daily notes filenames (e.g. `"YYYY-MM-DD"`).
     pub daily_notes_format: Arc<str>,
@@ -89,7 +89,7 @@ pub struct VaultConfig {
     pub marksman_binary: Option<PathBuf>,
     /// Whether telemetry and Zed cloud features are disabled.
     pub disable_cloud_features: bool,
-    /// Runtime feature flags for this vault.
+    /// Runtime feature flags for this silo.
     pub features: OxidianFeatureFlags,
 }
 
@@ -110,6 +110,10 @@ pub struct OxidianFeatureFlags {
     pub git_panel: bool,
     /// Habilita soporte para fórmulas matemáticas LaTeX en Markdown. Default: false.
     pub enable_math: bool,
+    /// If true, new panels created by Oxidian will default to flexible sizing
+    /// (allowing them to grow/shrink with the dock when the window is resized).
+    /// This is a global default; individual panels may override via UI.
+    pub panels_default_flexible: bool,
 }
 
 impl Default for OxidianFeatureFlags {
@@ -121,6 +125,7 @@ impl Default for OxidianFeatureFlags {
             vim_mode: false,
             git_panel: false,
             enable_math: false,
+            panels_default_flexible: true,
         }
     }
 }
@@ -214,7 +219,7 @@ pub fn find_wiki_link_at_column(line: &str, col: usize) -> Option<String> {
 }
 
 /// A thread-safe global resolver for wiki-links.
-/// Registered by `oxidian_vault` and called by `editor` to navigate to notes.
+/// Registered by `oxidian_vault` (silo integration) and called by `editor` to navigate to notes.
 pub struct WikiLinkResolver(
     pub Arc<dyn Fn(&str, &mut gpui::Window, &mut gpui::App) -> Option<PathBuf> + Send + Sync>,
 );

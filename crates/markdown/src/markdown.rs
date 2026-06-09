@@ -42,8 +42,10 @@ use language::{CharClassifier, Language, LanguageRegistry, Rope};
 use parser::CodeBlockMetadata;
 use parser::{
     MarkdownEvent, MarkdownTag, MarkdownTagEnd, ParsedMetadataBlock, parse_links_only,
-    parse_markdown_with_options, parse_markdown_with_options_ext,
+    parse_markdown_with_options_ext,
 };
+#[allow(unused_imports)]
+use parser::parse_markdown_with_options;
 use pulldown_cmark::{Alignment, BlockQuoteKind};
 use sum_tree::TreeMap;
 use theme::SyntaxTheme;

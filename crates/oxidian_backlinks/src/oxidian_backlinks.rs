@@ -48,6 +48,13 @@ impl EventEmitter<PanelEvent> for BacklinksPanel {}
 impl BacklinksPanel {
     pub fn new(workspace: Entity<Workspace>, cx: &mut Context<Self>) -> Self {
         let focus_handle = cx.focus_handle();
+        // Respect silo/global default for panel flexibility when available.
+        // Determine default flexible setting from the active silo config if available.
+        let default_flexible = cx
+            .try_global::<oxidian_core::ActiveSilo>()
+            .map(|active| active.0.features.panels_default_flexible)
+            .unwrap_or(true);
+
         let mut this = Self {
             workspace: workspace.downgrade(),
             focus_handle,
@@ -56,7 +63,7 @@ impl BacklinksPanel {
             position: DockPosition::Right,
             active: false,
             zoomed: false,
-            flexible: true,
+            flexible: default_flexible,
             default_size: Pixels::from(300.0),
             _subscriptions: Vec::new(),
             _vault_subscription: None,

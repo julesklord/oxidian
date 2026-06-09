@@ -229,6 +229,7 @@ pub(crate) fn parse_options(enable_math: bool) -> Options {
 }
 // OXIDIAN END
 
+#[allow(dead_code)]
 pub(crate) fn parse_markdown_with_options(
     text: &str,
     parse_html: bool,
