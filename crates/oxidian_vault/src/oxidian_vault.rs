@@ -166,7 +166,7 @@ pub enum VaultEvent {
     InitialScanComplete,
 }
 
-    /// The silo index: watches the silo directory and keeps the SQLite index up to date.
+/// The silo index: watches the silo directory and keeps the SQLite index up to date.
 pub struct VaultIndex {
     pub config: VaultConfig,
     db: VaultDatabase,
@@ -313,8 +313,7 @@ impl VaultIndex {
 
             // 3. Find and rewrite backlinks
             if let Ok(backlinks) = db.get_backlinks(&old_note_str) {
-                let pattern =
-                    format!(r"\[\[{}(?:\|([^\]]*?))?\]\]", regex::escape(&old_note_str));
+                let pattern = format!(r"\[\[{}(?:\|([^\]]*?))?\]\]", regex::escape(&old_note_str));
                 let re = regex::Regex::new(&pattern)?;
 
                 for (from_note, _alias, _line) in backlinks {
@@ -322,13 +321,14 @@ impl VaultIndex {
                         let from_path = PathBuf::from(from_path_str);
                         if from_path.exists() {
                             let src_content = fs.load(&from_path).await?;
-                            let updated_src = re.replace_all(&src_content, |caps: &regex::Captures| {
-                                if let Some(alias) = caps.get(1) {
-                                    format!("[[{}{}]]", new_note_id.as_str(), alias.as_str())
-                                } else {
-                                    format!("[[{}]]", new_note_id.as_str())
-                                }
-                            });
+                            let updated_src =
+                                re.replace_all(&src_content, |caps: &regex::Captures| {
+                                    if let Some(alias) = caps.get(1) {
+                                        format!("[[{}{}]]", new_note_id.as_str(), alias.as_str())
+                                    } else {
+                                        format!("[[{}]]", new_note_id.as_str())
+                                    }
+                                });
                             if updated_src != src_content {
                                 fs.atomic_write(from_path, updated_src.into_owned()).await?;
                             }
@@ -367,10 +367,14 @@ impl VaultIndex {
                     .map(|d| d.as_secs() as i64)
                     .unwrap_or(0);
 
-                let content = std::fs::read_to_string(&path_clone).context("reading note content")?;
+                let content =
+                    std::fs::read_to_string(&path_clone).context("reading note content")?;
 
                 let fm_title = extract_title_from_frontmatter(&content);
-                let filename = path_clone.file_name().and_then(|n| n.to_str()).unwrap_or(&note_id_str);
+                let filename = path_clone
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(&note_id_str);
                 let title = parsing::extract_title(fm_title.as_deref(), &content, filename);
                 let word_count = parsing::count_body_words(&content) as i64;
                 let snippet = parsing::extract_snippet(&content);
@@ -378,8 +382,15 @@ impl VaultIndex {
                 let wiki_links = extract_wiki_links_from_text(&content);
                 let tags = extract_tags_from_frontmatter(&content);
 
-                db.upsert_note(note_id_str.clone(), title, path_str, modified_at, word_count, snippet)
-                    .await?;
+                db.upsert_note(
+                    note_id_str.clone(),
+                    title,
+                    path_str,
+                    modified_at,
+                    word_count,
+                    snippet,
+                )
+                .await?;
                 db.delete_links_from(note_id_str.clone()).await?;
                 db.delete_tags_for_note(note_id_str.clone()).await?;
 
@@ -400,7 +411,9 @@ impl VaultIndex {
 
                 // Persisted successfully — update in-memory index on the entity.
                 this.update(cx, |vault, _cx| {
-                    vault.notes.insert(note_id_clone.clone(), path_clone.clone());
+                    vault
+                        .notes
+                        .insert(note_id_clone.clone(), path_clone.clone());
                 })
                 .ok();
 
@@ -585,6 +598,7 @@ fn extract_title_from_frontmatter(content: &str) -> Option<String> {
 }
 
 /// Extracts the first `# Heading` as the note title, or the first non-empty line.
+#[cfg(test)]
 fn extract_title(content: &str) -> Option<String> {
     for line in content.lines() {
         let trimmed = line.trim();
@@ -669,8 +683,8 @@ fn extract_tags_from_frontmatter(content: &str) -> Vec<String> {
 
 // OXIDIAN BEGIN — vault detection
 
-    /// Returns true if the given directory contains an `.oxidian` marker (our silo),
-    /// or an `.obsidian` directory (an Obsidian vault we can read).
+/// Returns true if the given directory contains an `.oxidian` marker (our silo),
+/// or an `.obsidian` directory (an Obsidian vault we can read).
 pub fn is_vault_root(path: &Path) -> bool {
     path.join(".oxidian").exists() || path.join(".obsidian").exists()
 }
@@ -759,11 +773,12 @@ pub fn save_oxidian_features_for_vault(
     let config_path = oxidian_dir.join("config.json");
 
     // Leer el archivo existente, si lo hay.
-    let mut config_json: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&config_path) {
-        serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}))
-    } else {
-        serde_json::json!({})
-    };
+    let mut config_json: serde_json::Value =
+        if let Ok(content) = std::fs::read_to_string(&config_path) {
+            serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        };
 
     // Actualizar la clave "features".
     config_json["features"] = serde_json::json!({
@@ -778,11 +793,14 @@ pub fn save_oxidian_features_for_vault(
 
     let new_content = serde_json::to_string_pretty(&config_json)?;
 
-    let uniq = format!("tmp-{}-{}", std::process::id(),
+    let uniq = format!(
+        "tmp-{}-{}",
+        std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
-            .unwrap_or(0));
+            .unwrap_or(0)
+    );
     let tmp_path = oxidian_dir.join(uniq);
 
     std::fs::write(&tmp_path, &new_content)?;
@@ -827,11 +845,14 @@ fn create_note_atomically(path: &Path, contents: &str) -> std::io::Result<()> {
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "no parent dir"))?;
 
     // Use a reasonably unique temporary filename in the same directory.
-    let uniq = format!("tmp-{}-{}", std::process::id(),
+    let uniq = format!(
+        "tmp-{}-{}",
+        std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
-            .unwrap_or(0));
+            .unwrap_or(0)
+    );
     let tmp_path = parent.join(uniq);
 
     // Write contents to temp file first.
@@ -860,13 +881,13 @@ fn create_note_atomically(path: &Path, contents: &str) -> std::io::Result<()> {
 // OXIDIAN BEGIN — GPUI global registration
 
 /// GPUI global holding the active vault index, if any.
-    pub struct ActiveVault(pub Option<Entity<VaultIndex>>);
+pub struct ActiveVault(pub Option<Entity<VaultIndex>>);
 
 impl Global for ActiveVault {}
 
-    /// Registers Oxidian silo integration with the GPUI App.
-    /// Call this from `zed/src/main.rs` during initialization.
-    pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
+/// Registers Oxidian silo integration with the GPUI App.
+/// Call this from `zed/src/main.rs` during initialization.
+pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
     cx.set_global(ActiveVault(None));
     cx.set_global(oxidian_core::MarksmanBinaryPath(None));
 

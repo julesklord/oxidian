@@ -17,6 +17,7 @@ use dap::{
         self, AdapterVersion, DapDelegate, DebugAdapter, DebugAdapterBinary, DebugAdapterName,
     },
     configure_tcp_connection,
+    debugger_settings::DebuggerSettings,
 };
 use gdb::GdbDebugAdapter;
 use go::GoDebugAdapter;
@@ -24,9 +25,13 @@ use gpui::{App, BorrowAppContext};
 use javascript::JsDebugAdapter;
 use python::PythonDebugAdapter;
 use serde_json::json;
+use settings::Settings;
 use task::{DebugScenario, ZedDebugConfig};
 
 pub fn init(cx: &mut App) {
+    if !DebuggerSettings::get_global(cx).enabled {
+        return;
+    }
     cx.update_default_global(|registry: &mut DapRegistry, _cx| {
         registry.add_adapter(Arc::from(CodeLldbDebugAdapter::default()));
         registry.add_adapter(Arc::from(PythonDebugAdapter::default()));

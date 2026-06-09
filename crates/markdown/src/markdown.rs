@@ -40,12 +40,12 @@ use gpui::{
 };
 use language::{CharClassifier, Language, LanguageRegistry, Rope};
 use parser::CodeBlockMetadata;
+#[allow(unused_imports)]
+use parser::parse_markdown_with_options;
 use parser::{
     MarkdownEvent, MarkdownTag, MarkdownTagEnd, ParsedMetadataBlock, parse_links_only,
     parse_markdown_with_options_ext,
 };
-#[allow(unused_imports)]
-use parser::parse_markdown_with_options;
 use pulldown_cmark::{Alignment, BlockQuoteKind};
 use sum_tree::TreeMap;
 use theme::SyntaxTheme;
@@ -1489,7 +1489,7 @@ impl MarkdownElement {
             "danger" | "error" | "bug" => (ui::IconName::Warning, status.error),
             "example" => (ui::IconName::Book, colors.text_accent),
             "quote" | "cite" => (ui::IconName::Quote, colors.text_muted),
-            _ => (ui::IconName::Info, colors.text_muted),  // fallback
+            _ => (ui::IconName::Info, colors.text_muted), // fallback
         }
     }
     // OXIDIAN END
@@ -1574,23 +1574,10 @@ impl MarkdownElement {
             );
 
             for row in rows {
-                builder.push_div(
-                    div()
-                        .flex()
-                        .gap_3()
-                        .py_0p5(),
-                    content_range,
-                    markdown_end,
-                );
+                builder.push_div(div().flex().gap_3().py_0p5(), content_range, markdown_end);
 
                 // Key
-                builder.push_div(
-                    div()
-                        .w_24()
-                        .flex_shrink_0(),
-                    content_range,
-                    markdown_end,
-                );
+                builder.push_div(div().w_24().flex_shrink_0(), content_range, markdown_end);
                 builder.push_text_style(TextStyleRefinement {
                     color: Some(colors.text_muted),
                     font_weight: Some(FontWeight::MEDIUM),
@@ -1602,12 +1589,7 @@ impl MarkdownElement {
                 builder.pop_div(); // end key
 
                 // Value
-                builder.push_div(
-                    div()
-                        .flex_1(),
-                    content_range,
-                    markdown_end,
-                );
+                builder.push_div(div().flex_1(), content_range, markdown_end);
                 builder.push_text_style(TextStyleRefinement {
                     font_size: Some(rems(0.85).into()),
                     ..Default::default()
@@ -1619,7 +1601,7 @@ impl MarkdownElement {
                 builder.pop_div(); // end row
             }
             builder.pop_div(); // end container
-            // OXIDIAN END
+        // OXIDIAN END
         } else {
             let mut metadata_block = div().w_full().rounded_md();
             metadata_block.style().refine(&self.style.code_block);
@@ -1633,7 +1615,6 @@ impl MarkdownElement {
             builder.pop_text_style();
         }
     }
-
 
     fn push_markdown_list_item(
         &self,
@@ -2155,7 +2136,9 @@ impl Element for MarkdownElement {
                         MarkdownTag::BlockQuote(kind) => {
                             // OXIDIAN BEGIN — Obsidian callout render
                             if kind.is_none() {
-                                if let Some(callout) = parsed_markdown.obsidian_callouts.get(&range.start) {
+                                if let Some(callout) =
+                                    parsed_markdown.obsidian_callouts.get(&range.start)
+                                {
                                     self.push_obsidian_callout(
                                         &mut builder,
                                         callout,
@@ -3046,7 +3029,6 @@ fn alignment_to_text_align(alignment: Alignment) -> Option<TextAlign> {
         Alignment::None => None,
     }
 }
-
 
 struct MarkdownElementBuilder {
     div_stack: Vec<AnyDiv>,

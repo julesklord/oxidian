@@ -1452,8 +1452,10 @@ fn initialize_pane(
             toolbar.add_item(project_search_bar, window, cx);
             let lsp_log_item = cx.new(|_| LspLogToolbarItemView::new());
             toolbar.add_item(lsp_log_item, window, cx);
-            let dap_log_item = cx.new(|_| debugger_tools::DapLogToolbarItemView::new());
-            toolbar.add_item(dap_log_item, window, cx);
+            if dap::debugger_settings::DebuggerSettings::get_global(cx).enabled {
+                let dap_log_item = cx.new(|_| debugger_tools::DapLogToolbarItemView::new());
+                toolbar.add_item(dap_log_item, window, cx);
+            }
             let acp_tools_item = cx.new(|_| acp_tools::AcpToolsToolbarItemView::new());
             toolbar.add_item(acp_tools_item, window, cx);
             let telemetry_log_item =
@@ -5651,11 +5653,13 @@ mod tests {
             repl::init(app_state.fs.clone(), cx);
             repl::notebook::init(cx);
             tasks_ui::init(cx);
-            project::debugger::breakpoint_store::BreakpointStore::init(
-                &app_state.client.clone().into(),
-            );
-            project::debugger::dap_store::DapStore::init(&app_state.client.clone().into(), cx);
-            debugger_ui::init(cx);
+            if dap::debugger_settings::DebuggerSettings::get_global(cx).enabled {
+                project::debugger::breakpoint_store::BreakpointStore::init(
+                    &app_state.client.clone().into(),
+                );
+                project::debugger::dap_store::DapStore::init(&app_state.client.clone().into(), cx);
+                debugger_ui::init(cx);
+            }
             initialize_workspace(app_state.clone(), cx);
             search::init(cx);
             cx.set_global(workspace::PaneSearchBarCallbacks {

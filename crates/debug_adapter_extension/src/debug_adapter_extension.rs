@@ -3,15 +3,19 @@ mod extension_locator_adapter;
 
 use std::{path::Path, sync::Arc};
 
-use dap::DapRegistry;
+use dap::{DapRegistry, debugger_settings::DebuggerSettings};
 use extension::{ExtensionDebugAdapterProviderProxy, ExtensionHostProxy};
 use extension_dap_adapter::ExtensionDapAdapter;
 use gpui::App;
+use settings::Settings;
 use util::ResultExt;
 
 use crate::extension_locator_adapter::ExtensionLocatorAdapter;
 
 pub fn init(extension_host_proxy: Arc<ExtensionHostProxy>, cx: &mut App) {
+    if !DebuggerSettings::get_global(cx).enabled {
+        return;
+    }
     let language_server_registry_proxy = DebugAdapterRegistryProxy::new(cx);
     extension_host_proxy.register_debug_adapter_proxy(language_server_registry_proxy);
 }

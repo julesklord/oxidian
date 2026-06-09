@@ -1,7 +1,7 @@
 use gpui::{ScrollHandle, prelude::*};
-use ui::{Checkbox, ToggleState, prelude::*};
-use oxidian_vault::{ActiveVault, save_oxidian_features_for_vault};
 use oxidian_core::OxidianFeatureFlags;
+use oxidian_vault::{ActiveVault, save_oxidian_features_for_vault};
+use ui::{Checkbox, ToggleState, prelude::*};
 
 use crate::SettingsWindow;
 
@@ -22,7 +22,9 @@ pub(crate) fn render_oxidian_panels_page(
         vault_root = Some(vault.config.root.clone());
     }
 
-    let toggle = |name: &'static str, value: bool, update_fn: fn(&mut OxidianFeatureFlags, bool)| {
+    let toggle = |name: &'static str,
+                  value: bool,
+                  update_fn: fn(&mut OxidianFeatureFlags, bool)| {
         let vault_root = vault_root.clone();
         let features_clone = features.clone();
 
@@ -46,16 +48,22 @@ pub(crate) fn render_oxidian_panels_page(
                                         cx.notify();
                                     });
                                     if cx.has_global::<oxidian_core::ActiveSilo>() {
-                                        cx.update_global::<oxidian_core::ActiveSilo, _>(|silo, _| {
-                                            silo.0.features = new_features.clone();
-                                        });
+                                        cx.update_global::<oxidian_core::ActiveSilo, _>(
+                                            |silo, _| {
+                                                silo.0.features = new_features.clone();
+                                            },
+                                        );
                                     }
                                 }
                             }
                         }
-                    }))
+                    })),
             )
-            .child(Label::new(name).color(if has_vault { Color::Default } else { Color::Muted }))
+            .child(Label::new(name).color(if has_vault {
+                Color::Default
+            } else {
+                Color::Muted
+            }))
     };
 
     v_flex()
@@ -71,9 +79,25 @@ pub(crate) fn render_oxidian_panels_page(
         .when(!has_vault, |this| {
             this.child(Label::new("Open a vault to change these settings.").color(Color::Warning))
         })
-        .child(toggle("Backlinks Panel", features.backlinks_panel, |f, v| f.backlinks_panel = v))
-        .child(toggle("Daily Notes Panel", features.daily_notes_panel, |f, v| f.daily_notes_panel = v))
-        .child(toggle("Frontmatter Panel", features.frontmatter_panel, |f, v| f.frontmatter_panel = v))
-        .child(toggle("Panels Default Flexible", features.panels_default_flexible, |f, v| f.panels_default_flexible = v))
+        .child(toggle(
+            "Backlinks Panel",
+            features.backlinks_panel,
+            |f, v| f.backlinks_panel = v,
+        ))
+        .child(toggle(
+            "Daily Notes Panel",
+            features.daily_notes_panel,
+            |f, v| f.daily_notes_panel = v,
+        ))
+        .child(toggle(
+            "Frontmatter Panel",
+            features.frontmatter_panel,
+            |f, v| f.frontmatter_panel = v,
+        ))
+        .child(toggle(
+            "Panels Default Flexible",
+            features.panels_default_flexible,
+            |f, v| f.panels_default_flexible = v,
+        ))
         .into_any_element()
 }

@@ -219,7 +219,8 @@ impl MarkdownPreviewView {
     ) -> Entity<Self> {
         cx.new(|cx| {
             // OXIDIAN BEGIN — leer render options
-            let enable_math = cx.try_global::<oxidian_core::OxidianRenderOptions>()
+            let enable_math = cx
+                .try_global::<oxidian_core::OxidianRenderOptions>()
                 .map(|opts| opts.enable_math)
                 .unwrap_or(false);
             // OXIDIAN END
@@ -633,7 +634,8 @@ impl MarkdownPreviewView {
         };
 
         // OXIDIAN BEGIN — obtener Silo root para resolver assets
-        let silo_root: Option<PathBuf> = cx.try_global::<oxidian_core::ActiveSilo>()
+        let silo_root: Option<PathBuf> = cx
+            .try_global::<oxidian_core::ActiveSilo>()
             .map(|silo| silo.0.root.clone());
         // OXIDIAN END
 
@@ -647,9 +649,6 @@ impl MarkdownPreviewView {
             .show_root_block_markers()
             .image_resolver({
                 let base_directory = self.base_directory.clone();
-                // OXIDIAN BEGIN
-                let silo_root = silo_root.clone();
-                // OXIDIAN END
                 move |dest_url| {
                     resolve_preview_image(
                         dest_url,
@@ -768,7 +767,9 @@ fn is_wiki_link_url(url: &str) -> bool {
         return false;
     }
     // Si tiene extensión de archivo conocida, es un link a archivo regular
-    let known_extensions = [".md", ".txt", ".pdf", ".png", ".jpg", ".jpeg", ".svg", ".gif"];
+    let known_extensions = [
+        ".md", ".txt", ".pdf", ".png", ".jpg", ".jpeg", ".svg", ".gif",
+    ];
     if known_extensions.iter().any(|ext| url.ends_with(ext)) {
         return false;
     }
@@ -798,15 +799,17 @@ fn handle_url_click(
                 if let Some(path) = (resolver_fn)(&target, window, cx) {
                     if let Some(workspace) = workspace.upgrade() {
                         workspace.update(cx, |workspace, cx| {
-                            workspace.open_abs_path(
-                                path,
-                                workspace::OpenOptions {
-                                    visible: Some(workspace::OpenVisible::None),
-                                    ..Default::default()
-                                },
-                                window,
-                                cx,
-                            ).detach();
+                            workspace
+                                .open_abs_path(
+                                    path,
+                                    workspace::OpenOptions {
+                                        visible: Some(workspace::OpenVisible::None),
+                                        ..Default::default()
+                                    },
+                                    window,
+                                    cx,
+                                )
+                                .detach();
                         });
                     }
                 } else {
@@ -932,7 +935,9 @@ fn resolve_preview_image(
 
     if let Some(path) = &path {
         if path.exists() {
-            return Some(ImageSource::Resource(Resource::Path(Arc::from(path.as_path()))));
+            return Some(ImageSource::Resource(Resource::Path(Arc::from(
+                path.as_path(),
+            ))));
         }
     }
 
@@ -940,11 +945,15 @@ fn resolve_preview_image(
     if let Some(silo_root) = silo_root {
         let candidate = silo_root.join(&decoded);
         if candidate.exists() {
-            return Some(ImageSource::Resource(Resource::Path(Arc::from(candidate.as_path()))));
+            return Some(ImageSource::Resource(Resource::Path(Arc::from(
+                candidate.as_path(),
+            ))));
         }
         let assets_candidate = silo_root.join("_assets").join(&decoded);
         if assets_candidate.exists() {
-            return Some(ImageSource::Resource(Resource::Path(Arc::from(assets_candidate.as_path()))));
+            return Some(ImageSource::Resource(Resource::Path(Arc::from(
+                assets_candidate.as_path(),
+            ))));
         }
     }
     // OXIDIAN END — Silo asset fallback

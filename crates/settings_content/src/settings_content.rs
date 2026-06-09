@@ -535,6 +535,10 @@ impl Default for TelemetrySettingsContent {
 #[with_fallible_options]
 #[derive(Default, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Clone, MergeFrom)]
 pub struct DebuggerSettingsContent {
+    /// Whether the debugger is enabled.
+    ///
+    /// Default: true
+    pub enabled: Option<bool>,
     /// Determines the stepping granularity.
     ///
     /// Default: line

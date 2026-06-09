@@ -1,6 +1,5 @@
 use gpui::{
-    App, Context, Empty, EventEmitter, IntoElement, ParentElement, Render, Task,
-    WeakEntity, Window,
+    App, Context, Empty, EventEmitter, IntoElement, ParentElement, Render, Task, WeakEntity, Window,
 };
 use oxidian_vault::ActiveVault;
 use smol::process::Command;
@@ -16,7 +15,7 @@ pub enum GitStatus {
 }
 
 pub struct GitStatusItem {
-    workspace: WeakEntity<Workspace>,
+    _workspace: WeakEntity<Workspace>,
     status: GitStatus,
     _monitor_task: Option<Task<()>>,
 }
@@ -24,7 +23,7 @@ pub struct GitStatusItem {
 impl GitStatusItem {
     pub fn new(workspace: WeakEntity<Workspace>, cx: &mut Context<Self>) -> Self {
         let mut this = Self {
-            workspace,
+            _workspace: workspace,
             status: GitStatus::None,
             _monitor_task: None,
         };
@@ -35,13 +34,12 @@ impl GitStatusItem {
     fn start_monitoring(&mut self, cx: &mut Context<Self>) {
         self._monitor_task = Some(cx.spawn(async move |this, cx| {
             loop {
-                let vault_root = cx
-                    .update(|cx| -> Option<PathBuf> {
-                        let active_vault =
-                            cx.try_global::<ActiveVault>().and_then(|av| av.0.clone())?;
-                        let vault = active_vault.read(cx);
-                        Some(vault.config.root.clone())
-                    });
+                let vault_root = cx.update(|cx| -> Option<PathBuf> {
+                    let active_vault =
+                        cx.try_global::<ActiveVault>().and_then(|av| av.0.clone())?;
+                    let vault = active_vault.read(cx);
+                    Some(vault.config.root.clone())
+                });
 
                 if let Some(vault_root) = vault_root {
                     let has_conflicts = check_git_conflicts(&vault_root).await.unwrap_or(false);
@@ -213,7 +211,7 @@ mod tests {
     use tempfile::tempdir;
 
     #[gpui::test]
-    async fn test_check_git_conflicts_no_repo(cx: &mut gpui::TestAppContext) {
+    async fn test_check_git_conflicts_no_repo(_cx: &mut gpui::TestAppContext) {
         let dir = tempdir().unwrap();
         // Since it's not a git repository, it should fail or return false.
         let res = check_git_conflicts(dir.path()).await;

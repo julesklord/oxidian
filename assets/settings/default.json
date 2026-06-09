@@ -637,7 +637,7 @@
     // Whether to show bookmarks in the gutter.
     "bookmarks": true,
     // Whether to show breakpoints in the gutter.
-    "breakpoints": true,
+    "breakpoints": false,
     // Whether to show fold buttons in the gutter.
     "folds": true,
     // Minimum number of characters to reserve space for in the gutter.
@@ -1211,7 +1211,7 @@
   // Whether the screen sharing icon is shown in the os status bar.
   "show_call_status_icon": true,
   // Whether to use language servers to provide code intelligence.
-  "enable_language_server": true,
+  "enable_language_server": false,
   // Whether to perform linked edits of associated ranges, if the language server supports it.
   // For example, when editing opening <html> tag, the contents of the closing </html> tag will be edited as well.
   "linked_edits": true,
@@ -2651,6 +2651,7 @@
   // Configures agent servers available in the agent panel.
   "agent_servers": {},
   "debugger": {
+    "enabled": false,
     "stepping_granularity": "line",
     "save_breakpoints": true,
     "timeout": 2000,

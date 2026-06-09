@@ -4891,6 +4891,7 @@ dependencies = [
  "extension",
  "gpui",
  "serde_json",
+ "settings",
  "task",
  "util",
 ]
@@ -12490,6 +12491,7 @@ dependencies = [
  "copilot_ui",
  "crashes",
  "csv_preview",
+ "dap",
  "dap_adapters",
  "db",
  "debug_adapter_extension",

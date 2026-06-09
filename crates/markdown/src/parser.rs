@@ -236,7 +236,13 @@ pub(crate) fn parse_markdown_with_options(
     parse_heading_slugs: bool,
     parse_metadata_blocks: bool,
 ) -> ParsedMarkdownData {
-    parse_markdown_with_options_ext(text, parse_html, parse_heading_slugs, parse_metadata_blocks, false)
+    parse_markdown_with_options_ext(
+        text,
+        parse_html,
+        parse_heading_slugs,
+        parse_metadata_blocks,
+        false,
+    )
 }
 
 pub(crate) fn parse_markdown_with_options_ext(
@@ -715,7 +721,9 @@ pub struct OxidianCallout {
 
 /// Pre-escanea el texto buscando callouts de Obsidian no reconocidos por GFM.
 /// Retorna un map de byte_offset → OxidianCallout.
-pub(crate) fn extract_obsidian_callouts(text: &str) -> std::collections::BTreeMap<usize, OxidianCallout> {
+pub(crate) fn extract_obsidian_callouts(
+    text: &str,
+) -> std::collections::BTreeMap<usize, OxidianCallout> {
     let mut results = std::collections::BTreeMap::new();
     let mut byte_offset: usize = 0;
 
@@ -737,20 +745,26 @@ pub(crate) fn extract_obsidian_callouts(text: &str) -> std::collections::BTreeMa
 
                 let kind_lower = raw_kind.to_lowercase();
                 // Solo procesar si es un tipo Obsidian (no GFM ya manejado)
-                let is_gfm = matches!(kind_lower.as_str(), "note" | "tip" | "important" | "warning" | "caution");
+                let is_gfm = matches!(
+                    kind_lower.as_str(),
+                    "note" | "tip" | "important" | "warning" | "caution"
+                );
 
                 if !is_gfm {
-                    results.insert(byte_offset, OxidianCallout {
-                        kind: Arc::from(kind_lower.as_str()),
-                        collapsible,
-                        collapsed,
-                        title: if title_part.is_empty() {
-                            None
-                        } else {
-                            Some(Arc::from(title_part))
-                        },
+                    results.insert(
                         byte_offset,
-                    });
+                        OxidianCallout {
+                            kind: Arc::from(kind_lower.as_str()),
+                            collapsible,
+                            collapsed,
+                            title: if title_part.is_empty() {
+                                None
+                            } else {
+                                Some(Arc::from(title_part))
+                            },
+                            byte_offset,
+                        },
+                    );
                 }
             }
         }

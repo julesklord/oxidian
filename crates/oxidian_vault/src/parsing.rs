@@ -234,12 +234,12 @@ fn strip_markdown_chars(s: &str) -> String {
 /// If frontmatter does not exist, it creates one at the top of the file.
 pub fn update_frontmatter_title(content: &str, new_title: &str) -> String {
     let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-    
+
     // Check if we have frontmatter at all
     if lines.first().map(|s| s.trim()) == Some("---") {
         let mut title_index = None;
         let mut closing_index = None;
-        
+
         for (i, line) in lines.iter().enumerate().skip(1) {
             let trimmed = line.trim();
             if trimmed == "---" {
@@ -250,13 +250,16 @@ pub fn update_frontmatter_title(content: &str, new_title: &str) -> String {
                 title_index = Some(i);
             }
         }
-        
+
         if let Some(idx) = title_index {
             lines[idx] = format!("title: \"{}\"", new_title.replace('"', "\\\""));
         } else if let Some(idx) = closing_index {
-            lines.insert(idx, format!("title: \"{}\"", new_title.replace('"', "\\\"")));
+            lines.insert(
+                idx,
+                format!("title: \"{}\"", new_title.replace('"', "\\\"")),
+            );
         }
-        
+
         lines.join("\n")
     } else {
         let mut new_content = format!("---\ntitle: \"{}\"\n---\n", new_title.replace('"', "\\\""));

@@ -3,6 +3,10 @@ use settings::{RegisterSetting, Settings, SettingsContent};
 
 #[derive(Debug, RegisterSetting)]
 pub struct DebuggerSettings {
+    /// Whether the debugger is enabled.
+    ///
+    /// Default: true
+    pub enabled: bool,
     /// Determines the stepping granularity.
     ///
     /// Default: line
@@ -37,6 +41,7 @@ impl Settings for DebuggerSettings {
     fn from_settings(content: &SettingsContent) -> Self {
         let content = content.debugger.clone().unwrap();
         Self {
+            enabled: content.enabled.unwrap_or(true),
             stepping_granularity: dap_granularity_from_settings(
                 content.stepping_granularity.unwrap(),
             ),
