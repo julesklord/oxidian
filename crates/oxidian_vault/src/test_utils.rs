@@ -1,10 +1,5 @@
-use fs::RealFs;
-use gpui::{App, Entity, TestAppContext, VisualTestContext};
-use oxidian_core::{NoteId, VaultConfig};
-use settings::SettingsStore;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use tempfile::TempDir;
 
 /// A helper struct for managing a temporary silo during tests.
@@ -52,16 +47,5 @@ impl TestSilo {
     }
 }
 
-/// Initializes a minimal test environment with GPUI SettingsStore and themes.
-pub fn init_test_env(cx: &mut TestAppContext) {
-    cx.update(|cx| {
-        let settings_store = SettingsStore::test(cx);
-        cx.set_global(settings_store);
-        theme_settings::init(theme::LoadThemes::JustBase, cx);
-    });
-}
-
-/// Helper to wait for any background indexing tasks to complete.
-pub fn wait_for_indexing(cx: &mut TestAppContext) {
-    cx.run_until_parked();
-}
+// TODO(#oxidian-tests): Add `init_test_env` and `wait_for_indexing` once
+// GPUI integration tests are introduced (requires theme + theme_settings dev-deps).
