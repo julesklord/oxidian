@@ -12686,6 +12686,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxidian_git"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "gpui",
+ "log",
+ "oxidian_core",
+ "oxidian_vault",
+ "smol",
+ "tempfile",
+ "ui",
+ "workspace",
+]
+
+[[package]]
 name = "oxidian_init"
 version = "0.1.0"
 dependencies = [
@@ -12697,6 +12712,7 @@ dependencies = [
  "oxidian_core",
  "oxidian_daily",
  "oxidian_frontmatter",
+ "oxidian_git",
  "oxidian_vault",
  "settings",
  "workspace",
@@ -12715,6 +12731,7 @@ dependencies = [
  "log",
  "oxidian_core",
  "project",
+ "regex",
  "serde_json",
  "smol",
  "tempfile",

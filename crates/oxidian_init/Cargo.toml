@@ -23,4 +23,5 @@ oxidian_vault = { path = "../oxidian_vault" }
 oxidian_backlinks = { path = "../oxidian_backlinks" }
 oxidian_daily = { path = "../oxidian_daily" }
 oxidian_frontmatter = { path = "../oxidian_frontmatter" }
+oxidian_git = { path = "../oxidian_git" }
 oxidian_core = { path = "../oxidian_core" }

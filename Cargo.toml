@@ -242,6 +242,7 @@ members = [
     "crates/oxidian_daily",
     "crates/oxidian_frontmatter",
     "crates/oxidian_init",
+    "crates/oxidian_git",
     # OXIDIAN END
 
     #
@@ -508,6 +509,7 @@ oxidian_backlinks = { path = "crates/oxidian_backlinks" }
 oxidian_daily = { path = "crates/oxidian_daily" }
 oxidian_frontmatter = { path = "crates/oxidian_frontmatter" }
 oxidian_init = { path = "crates/oxidian_init" }
+oxidian_git = { path = "crates/oxidian_git" }
 # OXIDIAN END
 
 #

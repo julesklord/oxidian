@@ -98,8 +98,11 @@ pub fn init(fs: Arc<dyn Fs>, features: OxidianFeatures, cx: &mut App) {
 
     if frontmatter {
         oxidian_frontmatter::init(cx);
-        log::info!("Oxidian: frontmatter/tags panel initialized");
+        log::info!("Oxidian: frontmatter panel initialized");
     }
+
+    oxidian_git::init(cx);
+    log::info!("Oxidian: git integration initialized");
 
     // Cargar keymap de Oxidian por default
     if let Ok(bindings) =

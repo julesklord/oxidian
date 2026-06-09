@@ -11,6 +11,11 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use worktree::{PathChange, UpdatedEntriesSet, WorktreeId};
 
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_utils;
+
+pub mod parsing;
+
 // OXIDIAN BEGIN — silo database domain
 
 /// SQLite domain for the Oxidian silo index.
@@ -19,36 +24,42 @@ pub struct VaultDatabase(db::sqlez::thread_safe_connection::ThreadSafeConnection
 impl Domain for VaultDatabase {
     const NAME: &str = "oxidian_vault";
 
-    const MIGRATIONS: &[&str] = &[sql!(
-        CREATE TABLE IF NOT EXISTS vault_notes (
-            note_id     TEXT PRIMARY KEY,
-            title       TEXT NOT NULL,
-            path        TEXT NOT NULL,
-            modified_at INTEGER NOT NULL
-        ) STRICT;
+    const MIGRATIONS: &[&str] = &[
+        sql!(
+            CREATE TABLE IF NOT EXISTS vault_notes (
+                note_id     TEXT PRIMARY KEY,
+                title       TEXT NOT NULL,
+                path        TEXT NOT NULL,
+                modified_at INTEGER NOT NULL
+            ) STRICT;
 
-        CREATE TABLE IF NOT EXISTS vault_links (
-            from_note   TEXT NOT NULL,
-            to_target   TEXT NOT NULL,
-            alias       TEXT,
-            heading     TEXT,
-            line        INTEGER NOT NULL,
-            FOREIGN KEY (from_note) REFERENCES vault_notes(note_id) ON DELETE CASCADE
-        ) STRICT;
+            CREATE TABLE IF NOT EXISTS vault_links (
+                from_note   TEXT NOT NULL,
+                to_target   TEXT NOT NULL,
+                alias       TEXT,
+                heading     TEXT,
+                line        INTEGER NOT NULL,
+                FOREIGN KEY (from_note) REFERENCES vault_notes(note_id) ON DELETE CASCADE
+            ) STRICT;
 
-        CREATE INDEX IF NOT EXISTS idx_vault_links_to_target
-            ON vault_links(to_target);
+            CREATE INDEX IF NOT EXISTS idx_vault_links_to_target
+                ON vault_links(to_target);
 
-        CREATE TABLE IF NOT EXISTS vault_tags (
-            note_id TEXT NOT NULL,
-            tag     TEXT NOT NULL,
-            PRIMARY KEY (note_id, tag),
-            FOREIGN KEY (note_id) REFERENCES vault_notes(note_id) ON DELETE CASCADE
-        ) STRICT;
+            CREATE TABLE IF NOT EXISTS vault_tags (
+                note_id TEXT NOT NULL,
+                tag     TEXT NOT NULL,
+                PRIMARY KEY (note_id, tag),
+                FOREIGN KEY (note_id) REFERENCES vault_notes(note_id) ON DELETE CASCADE
+            ) STRICT;
 
-        CREATE INDEX IF NOT EXISTS idx_vault_tags_tag
-            ON vault_tags(tag);
-    )];
+            CREATE INDEX IF NOT EXISTS idx_vault_tags_tag
+                ON vault_tags(tag);
+        ),
+        sql!(
+            ALTER TABLE vault_notes ADD COLUMN word_count INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE vault_notes ADD COLUMN snippet TEXT NOT NULL DEFAULT "";
+        ),
+    ];
 }
 
 static_connection!(VaultDatabase, []);
@@ -63,10 +74,12 @@ impl VaultDatabase {
             note_id: String,
             title: String,
             path: String,
-            modified_at: i64
+            modified_at: i64,
+            word_count: i64,
+            snippet: String
         ) -> Result<()> {
-            INSERT OR REPLACE INTO vault_notes(note_id, title, path, modified_at)
-            VALUES ((?), (?), (?), (?))
+            INSERT OR REPLACE INTO vault_notes(note_id, title, path, modified_at, word_count, snippet)
+            VALUES ((?), (?), (?), (?), (?), (?))
         }
     }
 
@@ -222,7 +235,7 @@ impl VaultIndex {
         self.notes.get(note_id)
     }
 
-    /// Fuzzy-resolves a wiki-link target string to the best matching `NoteId`.
+    /// fuzzy-resolves a wiki-link target string to the best matching `NoteId`.
     /// Tries exact match first, then basename match, then prefix match.
     pub fn resolve_wiki_link(&self, target: &str) -> Option<NoteId> {
         let normalized = target.trim();
@@ -246,6 +259,86 @@ impl VaultIndex {
         }
 
         None
+    }
+
+    pub fn rename_note(
+        &self,
+        old_note_id: NoteId,
+        new_title: String,
+        fs: Arc<dyn Fs>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        let db = self.db.clone();
+        let old_note_str = old_note_id.as_str().to_owned();
+
+        // Calculate new note ID and new filename/path
+        let slug = parsing::slug_to_title(&new_title)
+            .to_lowercase()
+            .replace(' ', "-");
+        let new_note_str = if old_note_str.contains('/') {
+            let parent = old_note_str.rsplit_once('/').map(|(p, _)| p).unwrap_or("");
+            format!("{}/{}", parent, slug)
+        } else {
+            slug.clone()
+        };
+        let new_note_id = NoteId::from_relative_path(&new_note_str);
+
+        let old_path = self.resolve_note(&old_note_id).cloned();
+
+        cx.background_spawn(async move {
+            let Some(old_path) = old_path else {
+                return Err(anyhow::anyhow!(
+                    "Old note not found in index: {}",
+                    old_note_str
+                ));
+            };
+
+            let new_path = old_path.parent().unwrap().join(format!("{}.md", slug));
+
+            // 1. Read old content and update the title in frontmatter
+            let old_content = fs.load(&old_path).await?;
+            let updated_content = parsing::update_frontmatter_title(&old_content, &new_title);
+
+            // 2. Perform the file write and rename
+            if old_path != new_path {
+                // Write updated content to new location
+                fs.write(&new_path, updated_content.as_bytes()).await?;
+                // Delete old file
+                fs.remove_file(&old_path, fs::RemoveOptions::default())
+                    .await?;
+            } else {
+                // Just overwrite existing file
+                fs.write(&old_path, updated_content.as_bytes()).await?;
+            }
+
+            // 3. Find and rewrite backlinks
+            if let Ok(backlinks) = db.get_backlinks(&old_note_str) {
+                let pattern =
+                    format!(r"\[\[{}(?:\|([^\]]*?))?\]\]", regex::escape(&old_note_str));
+                let re = regex::Regex::new(&pattern)?;
+
+                for (from_note, _alias, _line) in backlinks {
+                    if let Ok(Some(from_path_str)) = db.resolve_note_path(&from_note) {
+                        let from_path = PathBuf::from(from_path_str);
+                        if from_path.exists() {
+                            let src_content = fs.load(&from_path).await?;
+                            let updated_src = re.replace_all(&src_content, |caps: &regex::Captures| {
+                                if let Some(alias) = caps.get(1) {
+                                    format!("[[{}{}]]", new_note_id.as_str(), alias.as_str())
+                                } else {
+                                    format!("[[{}]]", new_note_id.as_str())
+                                }
+                            });
+                            if updated_src != src_content {
+                                fs.atomic_write(from_path, updated_src.into_owned()).await?;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(())
+        })
     }
 
     /// Indexes a single note: extracts wiki-links, updates the DB.
@@ -276,17 +369,16 @@ impl VaultIndex {
 
                 let content = std::fs::read_to_string(&path_clone).context("reading note content")?;
 
-                let title = extract_title(&content).unwrap_or_else(|| {
-                    path_clone.file_stem()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or(&note_id_str)
-                        .to_owned()
-                });
+                let fm_title = extract_title_from_frontmatter(&content);
+                let filename = path_clone.file_name().and_then(|n| n.to_str()).unwrap_or(&note_id_str);
+                let title = parsing::extract_title(fm_title.as_deref(), &content, filename);
+                let word_count = parsing::count_body_words(&content) as i64;
+                let snippet = parsing::extract_snippet(&content);
 
                 let wiki_links = extract_wiki_links_from_text(&content);
                 let tags = extract_tags_from_frontmatter(&content);
 
-                db.upsert_note(note_id_str.clone(), title, path_str, modified_at)
+                db.upsert_note(note_id_str.clone(), title, path_str, modified_at, word_count, snippet)
                     .await?;
                 db.delete_links_from(note_id_str.clone()).await?;
                 db.delete_tags_for_note(note_id_str.clone()).await?;
@@ -464,6 +556,33 @@ pub fn extract_wiki_links_from_text(text: &str) -> Vec<(usize, WikiLink)> {
 // OXIDIAN END
 
 // OXIDIAN BEGIN — frontmatter and title helpers
+
+fn extract_title_from_frontmatter(content: &str) -> Option<String> {
+    let mut in_frontmatter = false;
+    let mut first_line = true;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if first_line && trimmed == "---" {
+            in_frontmatter = true;
+            first_line = false;
+            continue;
+        }
+        first_line = false;
+        if !in_frontmatter {
+            break;
+        }
+        if trimmed == "---" || trimmed == "+++" {
+            break;
+        }
+        if let Some(rest) = trimmed.strip_prefix("title:") {
+            let title = rest.trim().trim_matches('"').trim_matches('\'');
+            if !title.is_empty() {
+                return Some(title.to_owned());
+            }
+        }
+    }
+    None
+}
 
 /// Extracts the first `# Heading` as the note title, or the first non-empty line.
 fn extract_title(content: &str) -> Option<String> {
