@@ -1,96 +1,157 @@
 # Zed Documentation Conventions
 
-This guide details Zed documentation structure: content selection, organization, and page creation.
+This document covers structural conventions for Zed documentation: what to document, how to organize it, and when to create new pages.
 
-The brand-voice/ directory contains style guidelines:
+For voice, tone, and writing style, see the [brand-voice/](./brand-voice/) directory, which contains:
 
-* SKILL.md: Voice principles and workflow.
-* rubric.md: Quality scoring criteria.
-* taboo-phrases.md: Patterns to avoid.
-* voice-examples.md: Transformation examples.
+- `SKILL.md` — Core voice principles and workflow
+- `rubric.md` — 8-point scoring criteria for quality
+- `taboo-phrases.md` — Patterns and phrases to avoid
+- `voice-examples.md` — Before/after transformation examples
 
-## Content Selection
+---
+
+## What Needs Documentation
 
 ### Document
-* User-facing features: Interactive elements.
-* Configuration: Setting keys, types, defaults, and examples.
-* Keybindings: Use {#action ...} and {#kb ...} syntax.
-* Actions: Document all actions.
-* AI capabilities: Agent tools, providers, and workflows.
-* Integrations: LLM providers, MCP servers, and external agents.
-* Tools: Agent, MCP, and built-in tools.
-* UI: Panels and views.
-* Extension APIs: For developers.
-* Breaking changes: Document all modifications regardless of complexity.
-* Version updates: Use callouts for version-specific behavior (e.g., "In Zed v0.224.0").
+
+- **New user-facing features** — Anything users interact with directly
+- **New settings or configuration options** — Include the setting key, type, default value, and example
+- **New keybindings or commands** — Use `{#action ...}` and `{#kb ...}` syntax
+- **All actions** — Completeness matters; document every action, not just non-obvious ones
+- **New AI capabilities** — Agent tools, providers, workflows
+- **New providers or integrations** — LLM providers, MCP servers, external agents
+- **New tools** — Agent tools, MCP tools, built-in tools
+- **New UI panels or views** — Any new panel, sidebar, or view users interact with
+- **Public extension APIs** — For extension developers
+- **Breaking changes** — Even if the fix is simple, document what changed
+- **Version-specific behavior changes** — Include version callouts (e.g., "In Zed v0.224.0 and above...")
 
 ### Skip
-Skip internal refactors, bug fixes without documentation errors, performance improvements without user impact, and test or CI changes.
 
-## Organization
+- **Internal refactors** — No user-visible change, no docs
+- **Bug fixes** — Unless the fix reveals that existing docs were wrong
+- **Performance improvements** — Unless user-visible (e.g., startup time)
+- **Test changes** — Never document tests
+- **CI/tooling changes** — Internal infrastructure
 
-### New Pages
-Create a page for major features with sub-features, extensive configuration examples, high search-volume topics, or new categories.
+---
 
-### New Sections
-Add sections to existing pages for settings, keybindings, minor enhancements, or options for existing features.
+## Page vs. Section Decisions
+
+### Create a new page when:
+
+- Introducing a **major feature** with multiple sub-features (e.g., Git integration, Vim mode)
+- The topic requires **extensive configuration examples**
+- Users would search for it **by name** (e.g., "Zed terminal", "Zed snippets")
+- It's a **new category** (e.g., a new AI provider type)
+
+### Add to an existing page when:
+
+- Adding a **setting** to a feature that already has a page
+- Adding a **keybinding** to an existing feature
+- The change is a **minor enhancement** to existing functionality
+- It's a **configuration option** for an existing feature
 
 ### Examples
 
-| Change | Action |
-| :--- | :--- |
-| Git Stash feature | Add section to `git.md` |
-| Remote Development | Create `remote-development.md` |
-| New git setting | Add to Git config section |
-| New AI provider | Add section to `llm-providers.md` |
-| New agent tool category | Create page based on scope |
+| Change                               | Action                                 |
+| ------------------------------------ | -------------------------------------- |
+| New "Stash" feature for Git          | Add section to `git.md`                |
+| New "Remote Development" capability  | Create `remote-development.md`         |
+| New setting `git.inline_blame.delay` | Add to existing Git config section     |
+| New AI provider (e.g., "Ollama")     | Add section to `llm-providers.md`      |
+| New agent tool category              | Potentially new page, depends on scope |
+
+---
 
 ## Document Structure
 
 ### Frontmatter
-Include YAML frontmatter on every page:
+
+Every doc page needs YAML frontmatter:
 
 ```yaml
 ---
 title: Feature Name - Zed
-description: One sentence describing this page.
+description: One sentence describing what this page covers. Used in search results.
 ---
 ```
 
-Follow these SEO guidelines:
-* Assign one primary keyword per page.
-* Write unique titles (50-60 characters) that state intent.
-* Write descriptions (140-160 characters) summarizing reader actions.
-* Use the primary keyword in the title and opening paragraph.
-* Use simple single-line entries for compatibility.
+- `title`: Feature name, optionally with "- Zed" suffix for SEO
+- `description`: Concise summary for search engines and link previews
+- Keep frontmatter values as simple single-line `key: value` entries (no
+  multiline values, no quotes) for compatibility with the docs postprocessor
+
+#### Frontmatter SEO Guidelines
+
+- Choose one primary keyword/intent phrase for each page
+- Write unique `title` values that clearly state the page topic and target user
+  intent; aim for ~50-60 characters
+- Write `description` values that summarize what the reader can do on the page;
+  aim for ~140-160 characters
+- Use the primary keyword naturally in the `title` and page body at least once
+  (usually in the opening paragraph); avoid keyword stuffing
 
 ### Section Ordering
-1. Title (# Feature Name).
-2. Opening paragraph: Definition and purpose (1-2 sentences).
-3. Usage: Access or enablement instructions.
-4. Core functionality: Main features and workflows.
-5. Configuration: Settings and JSON examples.
-6. Keybindings: Reference tables.
-7. See Also: Links to related docs.
+
+1. **Title** (`# Feature Name`) — Clear, scannable
+2. **Opening paragraph** — What this is and why you'd use it (1-2 sentences)
+3. **Getting Started / Usage** — How to access or enable it
+4. **Core functionality** — Main features and workflows
+5. **Configuration** — Settings, with JSON examples
+6. **Keybindings / Actions** — Reference tables
+7. **See Also** — Links to related docs
 
 ### Section Depth
-Use ## for main sections and ### for subsections. Avoid deeper levels.
+
+- Use `##` for main sections
+- Use `###` for subsections
+- Avoid `####` unless absolutely necessary — if you need it, consider restructuring
 
 ### Anchor IDs
-Add explicit IDs like {#getting-started} for common reference targets or stable links.
 
-## Formatting
+Add explicit anchor IDs to sections users might link to directly:
 
-### Code and Symbols
-Use inline `code` for setting names, keybindings, commands, file paths, action names, and values.
+```markdown
+## Getting Started {#getting-started}
+
+### Configuring Models {#configuring-models}
+```
+
+Use anchor IDs when:
+
+- The section is a common reference target
+- You need a stable link that won't break if the heading text changes
+- The heading contains special characters that would create ugly auto-generated anchors
+
+---
+
+## Formatting Conventions
+
+### Code Formatting
+
+Use inline `code` for:
+
+- Setting names: `vim_mode`, `buffer_font_size`
+- Keybindings: `cmd-shift-p`, `ctrl-w h`
+- Commands: `:w`, `:q`
+- File paths: `~/.config/zed/settings.json`
+- Action names: `git::Commit`
+- Values: `true`, `false`, `"eager"`
 
 ### Action and Keybinding References
-Use Zed syntax for dynamic rendering:
-* {#action git::Commit}: Renders the action name.
-* {#kb git::Commit}: Renders the keybinding.
+
+Use Zed's special syntax for dynamic rendering:
+
+- {#action git::Commit} — Renders the action name
+- {#kb git::Commit} — Renders the keybinding for that action
+
+This ensures keybindings stay accurate if defaults change.
 
 ### JSON Examples
-Annotate blocks with [settings] or [keymap]:
+
+Always use the `[settings]` or `[keymap]` annotation:
 
 ```json [settings]
 {
@@ -107,74 +168,213 @@ Annotate blocks with [settings] or [keymap]:
 }
 ```
 
-### Text Layout
-* Tables: Use for references and comparisons. Keep cells concise.
-* Paragraphs: Limit to three sentences. Focus on one idea per paragraph.
-* Pronouns: Repeat nouns instead of using vague words like "it" or "this".
-* Callouts: Use blockquotes for tips, notes, and warnings.
-* Version Notes: Specify version numbers for behavioral changes.
+### Tables
 
-## Linking
+Use tables for:
 
-### Internal and External
-* Use relative paths for internal links.
-* Link to zed.dev or upstream docs for integrations.
-* Include a "See also" section with related links.
+- Action/keybinding reference lists
+- Setting options with descriptions
+- Feature comparisons
 
-### SEO Linking
-* Link each page to the documentation tree.
-* Include three internal links on non-reference pages.
-* Use descriptive link text.
-* Link to relevant zed.dev marketing pages for main features.
+Keep tables scannable — avoid long prose in table cells.
 
-## Specialized Documentation
+### Paragraphs
 
-### Languages
-Follow this structure for language docs in `src/languages/`:
-1. Language name and description.
-2. Setup instructions.
-3. Server configuration.
-4. Formatting configuration.
-5. Language settings.
-6. Limitations.
+- Keep paragraphs short (2-3 sentences max)
+- One idea per paragraph
+- Use bullet lists for multiple related items
 
-### Settings
-1. Show the Settings Editor (UI) approach first.
-2. Provide JSON as a secondary option.
-3. Include the setting key in code formatting.
-4. Provide a one-sentence description.
-5. Show types and defaults.
-6. Include a JSON example.
+### Pronouns
 
-#### File Locations
-* macOS/Linux: `~/.config/zed/settings.json` and `keymap.json`.
-* Windows: `%AppData%\Zed\settings.json` and `keymap.json`.
+Minimize vague pronouns like "it", "this", and "that". Repeat the noun so readers know exactly what you're referring to.
+
+**Bad:**
+
+> The API creates a token after authentication. It should be stored securely.
+
+**Good:**
+
+> The API creates a token after authentication. The token should be stored securely.
+
+This improves clarity for both human readers and AI systems parsing the documentation.
+
+### Callouts
+
+Use blockquote callouts for tips, notes, and warnings:
+
+```markdown
+> **Note:** This feature requires signing in.
+
+> **Tip:** Hold `cmd` when submitting to automatically follow the agent.
+
+> **Warning:** This action cannot be undone.
+```
+
+### Version-Specific Notes
+
+When behavior differs by version, be explicit:
+
+```markdown
+> **Note:** In Zed v0.224.0 and above, tool approval is controlled by `agent.tool_permissions.default`.
+```
+
+Include the version number and what changed. This helps users on older versions understand why their behavior differs.
+
+---
+
+## Cross-Linking
+
+### Internal Links
+
+Link to other docs using relative paths:
+
+- `[Vim mode](./vim.md)`
+- `[AI Quick Start](./ai/quick-start.md)`
+
+### External Links
+
+- Link to `zed.dev` pages when appropriate
+- Link to upstream documentation (e.g., Tree-sitter, language servers) when explaining integrations
+
+### "See Also" Sections
+
+End pages with related links when helpful:
+
+```markdown
+## See also
+
+- [Agent Panel](./agent-panel.md): Agentic editing with file read/write
+- [Inline Assistant](./inline-assistant.md): Prompt-driven code transformations
+```
+
+### SEO Linking Guidelines
+
+- Ensure each page is reachable from at least one other docs page (no orphan
+  pages)
+- For non-reference pages, include at least 3 internal links to related docs
+  when possible
+- Reference pages (for example, `docs/src/reference/*`) can use fewer links when
+  extra links would add noise
+- Add links to closely related docs where they help users complete the next task
+- Use descriptive link text that tells users what they will get on the linked
+  page
+- For main feature pages with a matching marketing page, include a relevant
+  `zed.dev` marketing link in addition to docs links
+
+---
+
+## Language-Specific Documentation
+
+Language docs in `src/languages/` follow a consistent structure:
+
+1. Language name and brief description
+2. Installation/setup (if needed)
+3. Language server configuration
+4. Formatting configuration
+5. Language-specific settings
+6. Known limitations (if any)
+
+Keep language docs focused on Zed-specific configuration, not general language tutorials.
+
+---
+
+## Settings Documentation
+
+When documenting settings:
+
+1. **Show the Settings Editor (UI) approach first** — Most settings have UI support
+2. **Then show JSON** as "or add to your settings file:"
+3. **State the setting key** in code formatting
+4. **Describe what it does** in one sentence
+5. **Show the type and default** if not obvious
+6. **Provide a complete JSON example**
+
+Example:
+
+> Configure inline blame in Settings ({#kb zed::OpenSettings}) by searching for "inline blame", or add to your settings file:
+>
+> ```json [settings]
+> {
+>   "git": {
+>     "inline_blame": {
+>       "enabled": false
+>     }
+>   }
+> }
+> ```
+
+For JSON-only settings (complex types without UI support), note this and link to instructions:
+
+> Add the following to your settings file ([how to edit](./configuring-zed.md#settings-files)):
+
+### Settings File Locations
+
+- **macOS/Linux:** `~/.config/zed/settings.json`
+- **Windows:** `%AppData%\Zed\settings.json`
+
+### Keymap File Locations
+
+- **macOS/Linux:** `~/.config/zed/keymap.json`
+- **Windows:** `%AppData%\Zed\keymap.json`
+
+---
 
 ## Terminology
 
-| Use | Instead of |
-| :--- | :--- |
-| folder | directory |
-| project | workspace |
-| Settings Editor | settings UI |
-| command palette | command bar |
-| panel | sidebar (e.g., "Project Panel") |
+Use consistent terminology throughout:
 
-## Requirements
-Format all documentation with Prettier at an 80-character line width. Verify changes with `npx prettier --check src/`.
+| Use             | Instead of                             |
+| --------------- | -------------------------------------- |
+| folder          | directory                              |
+| project         | workspace                              |
+| Settings Editor | settings UI                            |
+| command palette | command bar                            |
+| panel           | sidebar (be specific: "Project Panel") |
+
+---
+
+## Formatting Requirements
+
+All documentation must pass **Prettier** formatting (80 character line width):
+
+```sh
+cd docs && npx prettier --check src/
+```
+
+Before any documentation change is considered complete:
+
+1. Run Prettier to format: `cd docs && npx prettier --write src/`
+2. Verify it passes: `cd docs && npx prettier --check src/`
+
+---
 
 ## Quality Checklist
-* Frontmatter includes title and description.
-* One primary keyword per page.
-* Opening paragraph explains the topic.
-* Settings show UI options before JSON.
-* Actions use {#action ...} and {#kb ...} syntax.
-* All actions recorded.
-* Anchor IDs added to sections.
-* Version callouts included.
-* No orphan pages.
-* Passes Prettier formatting.
-* Follows the brand voice rubric.
+
+Before finalizing documentation:
+
+- [ ] Frontmatter includes `title` and `description`
+- [ ] Page has a clear primary keyword/intent phrase
+- [ ] Primary keyword appears naturally in the page body (no keyword stuffing)
+- [ ] Opening paragraph explains what and why
+- [ ] Settings show UI first, then JSON examples
+- [ ] Actions use `{#action ...}` and `{#kb ...}` syntax
+- [ ] All actions are documented (completeness matters)
+- [ ] Anchor IDs on sections likely to be linked
+- [ ] Version callouts where behavior differs by release
+- [ ] No orphan pages (linked from somewhere)
+- [ ] Non-reference pages include at least 3 useful internal docs links
+- [ ] Main feature pages include a relevant `zed.dev` marketing link
+- [ ] Passes Prettier formatting check
+- [ ] Passes brand voice rubric (see `brand-voice/rubric.md`)
+
+---
+
+## Gold Standard Examples
+
+See `../.doc-examples/` for curated examples of well-documented features. Use these as templates when writing new documentation.
+
+---
 
 ## Reference
-Consult `docs/AGENTS.md` for automation rules, safety constraints, and output formats.
+
+For automation-specific rules (safety constraints, change classification, output formats), see `docs/AGENTS.md`.

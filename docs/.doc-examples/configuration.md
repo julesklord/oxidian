@@ -1,49 +1,66 @@
+<!--
+  GOLD STANDARD EXAMPLE: Configuration Documentation
+
+  This example demonstrates documentation for settings and configuration.
+
+  Key patterns to note:
+  - Anchor IDs on all major sections
+  - Opening paragraph explains what this guide covers
+  - Multiple JSON examples with [settings] annotation
+  - Platform-specific file paths
+  - Proper callout formatting
+  - "See Also" section at the end (not "What's Next")
+-->
+
 ---
 
 title: Configuring Zed - Settings and Preferences
-description: Configure Zed with the Settings Editor, JSON files, and project-specific overrides. Covers settings options.
+description: Configure Zed with the Settings Editor, JSON files, and project-specific overrides. Covers all settings options.
 
 ---
 
 # Configuring Zed
 
-Zed configures settings through the Settings Editor, JSON configuration files, and project-specific overrides.
+This guide explains how Zed's settings system works, including the Settings Editor, JSON configuration files, and project-specific settings.
 
-See [Appearance](./appearance.md) for visual customization like themes, fonts, and icons.
+For visual customization (themes, fonts, icons), see [Appearance](./appearance.md).
 
 ## Settings Editor {#settings-editor}
 
-The **Settings Editor** ({#kb zed::OpenSettings}) configures Zed. It provides a searchable interface to browse settings, view current values, and apply changes.
+The **Settings Editor** ({#kb zed::OpenSettings}) is the primary way to configure Zed. It provides a searchable interface where you can browse available settings, see their current values, and make changes.
 
-Open the Settings Editor by pressing {#kb zed::OpenSettings} or running {#action zed::OpenSettings} from the command palette.
+To open it:
 
-Type in the search box to display matching settings with descriptions and modification controls. Zed saves changes to your settings file.
+- Press {#kb zed::OpenSettings}
+- Or run {#action zed::OpenSettings} from the command palette
 
-> **Note:** The Settings Editor omits some settings. Edit the JSON file directly to configure advanced options like language formatters.
+As you type in the search box, matching settings appear with descriptions and controls to modify them. Changes save automatically to your settings file.
+
+> **Note:** Not all settings are available in the Settings Editor yet. Some advanced options, like language formatters, require editing the JSON file directly.
 
 ## Settings Files {#settings-files}
 
 ### User Settings {#user-settings}
 
-Your user settings apply across projects. Open the file with {#kb zed::OpenSettingsFile} or run {#action zed::OpenSettingsFile} from the command palette.
+Your user settings apply globally across all projects. Open the file with {#kb zed::OpenSettingsFile} or run {#action zed::OpenSettingsFile} from the command palette.
 
-The file locations are:
+The file is located at:
 
 - macOS: `~/.config/zed/settings.json`
 - Linux: `~/.config/zed/settings.json` (or `$XDG_CONFIG_HOME/zed/settings.json`)
 - Windows: `%APPDATA%\Zed\settings.json`
 
-The syntax uses JSON and supports `//` comments.
+The syntax is JSON with support for `//` comments.
 
 ### Default Settings {#default-settings}
 
-Run {#action zed::OpenDefaultSettings} from the command palette to view settings and their default values. This read-only reference helps you edit your settings.
+To see all available settings with their default values, run {#action zed::OpenDefaultSettings} from the command palette. This opens a read-only reference you can use when editing your own settings.
 
 ### Project Settings {#project-settings}
 
-Create a `.zed/settings.json` file in your project root to override user settings for a specific project. Run {#action zed::OpenProjectSettings} to create this file.
+Override user settings for a specific project by creating a `.zed/settings.json` file in your project root. Run {#action zed::OpenProjectSettings} to create this file.
 
-Project settings override user settings for that project.
+Project settings take precedence over user settings for that project only.
 
 ```json [settings]
 // .zed/settings.json
@@ -54,23 +71,23 @@ Project settings override user settings for that project.
 }
 ```
 
-Add settings files in subdirectories for granular control.
+You can also add settings files in subdirectories for more granular control.
 
-> **Note:** Project settings only apply to editor behavior and language tooling options like `tab_size`, `formatter`, and `format_on_save`. Global settings like `theme` or `vim_mode` require user settings.
+> **Note:** Not all settings can be set at the project level. Settings that affect the editor globally (like `theme` or `vim_mode`) only work in user settings. Project settings are limited to editor behavior and language tooling options like `tab_size`, `formatter`, and `format_on_save`.
 
 ## How Settings Merge {#how-settings-merge}
 
-Zed applies settings in layers:
+Settings are applied in layers:
 
-1. **Default settings** apply built-in defaults.
-2. **User settings** apply global preferences.
-3. **Project settings** apply project-specific overrides.
+1. **Default settings** — Zed's built-in defaults
+2. **User settings** — Your global preferences
+3. **Project settings** — Project-specific overrides
 
-Later layers override earlier layers. Object settings like `terminal` merge properties instead of replacing the entire object.
+Later layers override earlier ones. For object settings (like `terminal`), properties merge rather than replace entirely.
 
 ## Per-Release Channel Overrides {#release-channel-overrides}
 
-Add top-level channel keys to apply different settings for Stable, Preview, or Nightly builds:
+Use different settings for Stable, Preview, or Nightly builds by adding top-level channel keys:
 
 ```json [settings]
 {
@@ -86,17 +103,17 @@ Add top-level channel keys to apply different settings for Stable, Preview, or N
 }
 ```
 
-This configuration applies the following settings:
+With this configuration:
 
-- **Stable** uses One Dark with vim mode disabled.
-- **Preview** uses Catppuccin Mocha with vim mode disabled.
-- **Nightly** uses Rosé Pine with vim mode enabled.
+- **Stable** uses One Dark with vim mode off
+- **Preview** uses Catppuccin Mocha with vim mode off
+- **Nightly** uses Rosé Pine with vim mode on
 
-The Settings Editor applies changes across channels.
+Changes made in the Settings Editor apply across all channels.
 
 ## Settings Deep Links {#deep-links}
 
-Zed deep links open specific settings:
+Zed supports deep links that open specific settings directly:
 
 ```
 zed://settings/theme
@@ -104,7 +121,7 @@ zed://settings/vim_mode
 zed://settings/buffer_font_size
 ```
 
-Share these links to provide configuration tips or reference settings in documentation.
+These are useful for sharing configuration tips or linking from documentation.
 
 ## Example Configuration {#example-configuration}
 
@@ -135,7 +152,7 @@ Share these links to provide configuration tips or reference settings in documen
 
 ## See Also {#see-also}
 
-- [Appearance](./appearance.md) configures themes, fonts, and visual settings.
-- [Key bindings](./key-bindings.md) customizes keyboard shortcuts.
-- [AI Configuration](./ai/configuration.md) sets up AI providers, models, and agent settings.
-- [All Settings](./reference/all-settings.md) provides a complete settings reference.
+- [Appearance](./appearance.md) — Themes, fonts, and visual customization
+- [Key bindings](./key-bindings.md) — Customize keyboard shortcuts
+- [AI Quick Start](./ai/quick-start.md) — Set up AI providers, models, and agent settings
+- [All Settings](./reference/all-settings.md) — Complete settings reference

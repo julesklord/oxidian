@@ -1,38 +1,50 @@
 ---
-title: AI Code Editor Documentation - Zed
-description: AI integration in Zed. Supports autonomous agents, inline edits, and code completion.
+title: AI in Zed
+description: Understand Zed's AI features, agent paths, model providers, and setup routes.
 ---
 
-# AI in Zed
+# AI
 
-Zed integrates AI into a native Rust application to provide autonomous agents, inline edits, and code completion.
+Zed's AI docs are organized around three areas:
 
-## Technical Architecture
+| Area         | Use it to choose                    | Examples                                                             |
+| ------------ | ----------------------------------- | -------------------------------------------------------------------- |
+| Agents       | How agentic work runs in Zed        | Zed Agent, External Agents, Terminal Threads                         |
+| Model access | How Zed connects to language models | Zed-hosted models, API access, subscriptions, gateways, local models |
+| Features     | Which AI workflow you want to use   | Agentic editing, inline edits, edit prediction, Git assistance       |
 
-Zed executes AI features within a GPU-accelerated environment.
+Start with [AI Quick Start](./quick-start.md) if you know what you want to do. Use [AI by Company](./by-company.md) if you know the company, subscription, model provider, agent, or CLI you want to use.
 
-- **Open Source:** Zed provides the source code for the editor and AI implementation.
-- **Model Support:** Connects to Anthropic, OpenAI, Google, and Ollama via cloud or local APIs.
-- **External Agents:** The Agent Client Protocol enables integration with CLI tools like Gemini CLI and Claude Agent.
-- **Privacy:** Zed shares data only when users opt in. Zero-data retention agreements govern API key usage.
+## Agent Paths {#agent-paths}
 
-## Agent Workflows
+Agent paths decide how agentic work runs in Zed.
 
-The Threads Sidebar manages agent tasks for reading, modifying, and executing code. Users can run multiple agent and terminal threads simultaneously across projects.
+- [Zed Agent](./zed-agent.md): Zed's native agent. It can use models configured through [LLM Providers](./llm-providers.md), including Zed-hosted models, provider API keys, supported subscriptions, gateways, and local models. It also uses built-in tools, profiles, skills, instructions, and MCP servers.
+- [External Agents](./external-agents.md): ACP-integrated agents that run through their own process and configuration.
+- [Terminal Threads](./terminal-threads.md): terminal-backed threads for running an agent CLI or TUI directly in Zed.
 
-The Agent Panel controls prompts, code reviews, and context. Model Context Protocol (MCP) servers and tool permissions define agent capabilities.
+The [Threads Sidebar](./parallel-agents.md#threads-sidebar) is where you organize agent work. You can run multiple agent threads and Terminal Threads at once, each using a different agent and working against different projects.
 
-The Inline Assistant transforms code by rewriting selections or terminal commands based on user descriptions.
+See [Agents](./agents.md) for a comparison.
 
-## Code Completions
+## Model Access {#model-access}
 
-Edit Prediction provides real-time code suggestions. The editor inserts suggestions from configured providers when the user presses tab.
+Model access controls which models power the Zed Agent and other model-backed Zed AI features. Zed can use hosted models, provider API access, subscription sign-in, gateways, and local models.
 
-Zeta, an open-source model developed by Zed, serves as the default provider. Users can also configure GitHub Copilot or Codestral.
+See [LLM Providers](./llm-providers.md) to choose a model access path.
 
-## Resources
-- [Configuration](./configuration.md): Set up LLM providers.
-- [Parallel Agents](./parallel-agents.md): Manage multiple threads.
-- [External Agents](./external-agents.md): Integrate CLI-based agents.
-- [Subscription](./subscription.md): Hosted model details.
-- [Privacy and Security](./privacy-and-security.md): Data handling policies.
+## AI Features {#ai-features}
+
+Zed has several AI-powered workflows:
+
+- [Agent Panel](./agent-panel.md): prompt agents, add context, review changes, and manage active threads.
+- [Parallel Agents](./parallel-agents.md): run multiple threads across projects and worktrees.
+- [Inline Assistant](./inline-assistant.md): transform a selection in place.
+- [Edit Prediction](./edit-prediction.md): accept AI completions while you type.
+- [Git commit generation](../git.md#ai-support-in-git): generate commit messages from the Git panel.
+
+## Configure AI {#configure-ai}
+
+Use [AI Quick Start](./quick-start.md) to choose the right setup path, configure model access, add agents or MCP servers, control tools, and turn AI off.
+
+For privacy, provider data boundaries, and opt-in data sharing, see [AI Privacy](./privacy-and-security.md) and [Feedback and Training Data](./ai-improvement.md).

@@ -1,63 +1,93 @@
+---
+title: Parallel Agents - Zed
+description: Run multiple agent threads and Terminal Threads concurrently using the Threads Sidebar, manage them across projects, and isolate work using Git worktrees.
+---
+
 # Parallel Agents
 
-Run agent and terminal threads simultaneously in the Threads Sidebar. Threads maintain independent agents, context windows, and histories. The sidebar integrates terminal and agent threads for quick switching.
+Parallel Agents lets you run multiple agent threads and Terminal Threads at once from the Threads Sidebar. Each thread works independently with its own agent, context window, and conversation history. Terminal Threads appear alongside agent threads in the same sidebar, so you can switch between them without leaving the Agent Panel.
 
-Use {#kb multi_workspace::ToggleWorkspaceSidebar} to open the Threads Sidebar.
+Open the Threads Sidebar with {#kb multi_workspace::ToggleWorkspaceSidebar}.
 
-Zed version 0.233.0 and later places the Agent Panel and Threads Sidebar on the left. The Project and Git panels reside on the right. Right-click any panel icon to rearrange them.
+Use **Zed > Panel Layout > Agentic** to place the Agent Panel and Threads Sidebar on the left, with the Project Panel, Git Panel, and other panels on the right. Use **Zed > Panel Layout > Classic** to restore the editor-oriented layout. You can still rearrange individual panels by right-clicking any panel icon.
 
-## Threads Sidebar
+## Threads Sidebar {#threads-sidebar}
 
-The sidebar groups threads by project. Each project section displays titles, status indicators, and active agents. Threads in linked Git worktrees remain with their parent project. See [Worktree Isolation](#worktree-isolation).
+The sidebar shows your threads grouped by project. Each project gets its own section with a header. Threads appear below with their title, status indicator, and which agent is running them. Threads running in linked Git worktrees appear under the same project as their main worktree. See [Worktree Isolation](#worktree-isolation).
 
-Terminal threads display a terminal icon in the sidebar. Select an entry to switch focus. See [terminal threads](./agent-panel.md#terminal-threads).
+Terminal Threads also appear as entries in the sidebar alongside agent threads, identified by a terminal icon. Click one to switch to it.
 
-Focus the sidebar with {#kb multi_workspace::FocusWorkspaceSidebar}. Search threads using {#kb agents_sidebar::FocusSidebarFilter} while the sidebar is active.
+To focus the sidebar without toggling it, use {#kb multi_workspace::FocusWorkspaceSidebar}. To search your threads, press {#kb agents_sidebar::FocusSidebarFilter} while the sidebar is focused.
 
-### Switching Threads
+### Switching Threads {#switching-threads}
 
-Click any sidebar entry to switch threads. The Agent Panel updates immediately to the selected conversation. Cycle through recent threads with {#kb agents_sidebar::ToggleThreadSwitcher}. Hold `Shift` with the binding to cycle backward.
+Click any thread in the sidebar to switch to it. The Agent Panel updates to show that thread's conversation.
 
-### Thread History
+For quick switching without opening the sidebar, use the thread switcher: press {#kb agents_sidebar::ToggleThreadSwitcher} to cycle forward through recent threads, or hold `Shift` while pressing that binding to go backward. This works from both the Agent Panel and the Threads Sidebar.
 
-Archive threads by clicking the archive icon on hover or pressing {#kb agent::ArchiveSelectedThread}. Active threads must finish before archiving. Toggle Thread History via {#kb agents_sidebar::ToggleThreadHistory} or the clock icon in the sidebar.
+### Thread History {#threads-history}
 
-Restore threads by selecting them in the History view. Zed moves the thread to the active list and reopens the conversation. History restoration automatically rebuilds associated Git worktrees. 
+To remove a thread from the sidebar, you can archive it by hovering over it and clicking the archive icon that appears. You can also select a thread and press {#kb agent::ArchiveSelectedThread}. Running threads cannot be moved to history until they finish.
 
-Use the trash icon in History to delete threads permanently. This action removes conversation history and associated worktree data. History search uses fuzzy matching on titles.
+The Thread History view holds all your threads, including ones that you have archived. Toggle it with {#kb agents_sidebar::ToggleThreadHistory} or by clicking the clock icon in the sidebar bottom bar, next to the sidebar toggle.
 
-### Importing External Agent Threads
+To restore a thread, open Thread History and click the thread you want to bring back. Zed moves it back to the thread list and opens it in the Agent Panel. If the thread was running in a Git worktree that was removed, Zed restores the worktree automatically.
 
-Zed detects existing threads from external agents and prompts for import. Open Thread History and click the import button to select agents. External agent support varies. Zed does not currently support Cursor or Gemini CLI imports.
+To permanently delete a thread, open Thread History, hover over the thread, and click the trash icon. This removes the thread's conversation history and cleans up any associated worktree data. Deleted threads cannot be recovered.
 
-## Running Multiple Threads
+You can search your threads in history; search will fuzzy match on thread titles.
 
-Threads run independently. Users can start tasks in separate threads simultaneously. Scope new threads by clicking the `+` button on a project header or using {#action agents_sidebar::NewThreadInGroup}. Each thread supports different agents.
+### Importing External Agent Threads {#importing-threads}
 
-## Multiple Projects
+If you have External Agents installed, Zed will detect whether you have existing threads and invite you to import them into Zed. Once you open Thread History, you'll find an import icon button in the Thread History toolbar that lets you import threads at any time. Clicking on it opens a modal where you can select the agents whose threads you want to import.
 
-The sidebar supports multiple projects in dedicated groups. Use the **Add Project** button to include more folders. The popover displays recent projects and options for local or remote folders.
+> **Note:** Thread import is subject to agent support. Some agents (such as Cursor and Gemini CLI) are not currently supported.
 
-### Multi-Root Folder Projects
+## Running Multiple Threads {#running-multiple-threads}
 
-Multi-root projects allow agents to access multiple folders in one thread. 
+Each thread runs independently, so you can send a prompt, open a second thread, and give it a different task while the first continues working. To scope a new thread to a specific project, hover over that project's header in the Threads Sidebar and click the `+` button, or use {#action agents_sidebar::NewThreadInGroup} from the keyboard. See [Creating New Threads](./agent-panel.md#new-thread) for the other entry points.
 
-* **Sidebar**: Select **Add Local Folders** from the **Add Project** menu.
-* **Title bar**: Click the project picker, hover a local entry, and select **Add Folder to this Project**.
-* **Project panel**: Right-click a root or empty space and choose **Add Folders to Project**.
+Each thread can use a different agent, so you can run Zed's built-in agent in one thread and an [External Agent](./external-agents.md) like Claude Code or Codex in another.
 
-## Worktree Isolation
+### Thread Types {#thread-types}
 
-Prevent file conflicts by running threads in separate [Git worktrees](../git.md#git-worktrees). Manage worktrees through the title bar picker. New worktrees start in a detached HEAD state to prevent accidental branch sharing. 
+The Threads Sidebar can hold different thread types:
 
-Use the branch picker to create or check out branches. If a branch is active in another worktree, the current worktree remains in detached HEAD. 
+| Thread type                                   | Configuration                                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------------- |
+| [Zed Agent thread](./zed-agent.md)            | Uses Zed Agent settings, profiles, tools, Skills, Instructions, and MCP         |
+| [External Agent thread](./external-agents.md) | Uses the ACP integration and the agent's native configuration                   |
+| [Terminal Thread](./terminal-threads.md)      | Runs a CLI/TUI in a terminal-backed thread; the CLI owns auth and configuration |
 
-The `create_worktree` [Task hook](../tasks.md#hooks) automates setup. `ZED_WORKTREE_ROOT` identifies the new path. `ZED_MAIN_GIT_WORKTREE` references the original repository. 
+## Multiple Projects {#multiple-projects}
 
-Review and merge changes through standard Git workflows. Archiving a thread removes the worktree from disk while preserving the Git state. Restoring the thread recreates the worktree.
+The Threads Sidebar can hold multiple projects at once. Each project gets its own group with its own threads and conversation history. This mirrors how Zed handles projects in general — see [Windows & Projects](../windows-and-projects.md) for more on how projects open and how to manage them.
 
-## See Also
+To add another project to the sidebar, click the **Add Project** button (open-folder icon) in the sidebar bottom bar. The popover that opens lists your recent projects and also provides **Add Local Folders** and **Add Remote Folder** buttons at the bottom.
 
-* [Agent Panel](./agent-panel.md): Manage individual threads and configure the agent
-* [External Agents](./external-agents.md): Use Claude Code, Gemini CLI, and other agents
-* [Tools](./tools.md): Built-in tools available in each thread
+### Multi-Root Folder Projects {#multi-root-folder-projects}
+
+A single project can contain multiple folders (a multi-root folder project). Agents can then read and write across all of those folders in a single thread. There are multiple ways to set one up:
+
+- **From the sidebar:** Click the **Add Project** button, choose **Add Local Folders**, and select multiple folders in the file picker. They open together as one multi-root project.
+- **From the title bar:** Click the project picker (the leftmost project name). For any local entry in the recent projects list, hover it and click the folder-with-plus icon (**Add Folder to this Project**) to merge that project's folders into the current project.
+- **From the Project panel:** Right-click a root folder or any empty space in the Project panel and choose **Add Folders to Project** to add more folders to the current project.
+
+## Worktree Isolation {#worktree-isolation}
+
+If two threads might edit the same files, start one in a new [Git worktree](../git.md#git-worktrees) to give it an isolated checkout.
+
+Worktrees are managed from the title bar. Click the worktree picker (to the right of the project picker) to switch between existing worktrees or create a new one. New worktrees are created in a detached HEAD state, so you won't accidentally share a branch between worktrees.
+
+Once you're in a new worktree, use the branch picker next to the worktree picker to create a new branch or check out an existing one. If the branch you pick is already checked out in another worktree, the current worktree stays in detached HEAD until you choose a different branch.
+
+To automate setup steps whenever a new worktree is created use a [Task hook](../tasks.md#hooks). The `create_worktree` hook runs automatically after Zed creates a linked worktree, with `ZED_WORKTREE_ROOT` pointing at the new worktree and `ZED_MAIN_GIT_WORKTREE` pointing at the original repository.
+
+After the agent finishes, review the diff and merge the changes through your normal Git workflow. If the thread was running in a linked worktree and no other active threads use it, moving the thread to Thread History saves the worktree's Git state and removes it from disk. Restoring the thread from history restores the worktree.
+
+## See Also {#see-also}
+
+- [Agent Panel](./agent-panel.md): Manage individual threads and configure the agent
+- [External Agents](./external-agents.md): Use ACP-integrated External Agents
+- [Terminal Threads](./terminal-threads.md): Run agent CLIs and TUIs directly in Zed
+- [Tools](./tools.md): Built-in tools available in each thread
