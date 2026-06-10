@@ -7,10 +7,15 @@ use gpui::{
 use oxidian_vault::ActiveVault;
 use std::collections::HashSet;
 use ui::prelude::*;
+use ui::Tooltip;
+use ui_input::InputField;
 use workspace::Workspace;
 use workspace::dock::{DockPosition, Panel, PanelEvent, PanelSizeState};
 
-actions!(oxidian_daily, [ToggleDailyNotesPanel, OpenTodayNote]);
+actions!(
+    oxidian_daily,
+    [ToggleDailyNotesPanel, OpenTodayNote, AppendQuickNote]
+);
 
 pub fn init(cx: &mut App) {
     cx.observe_new(|workspace: &mut Workspace, _, _| {
@@ -121,6 +126,45 @@ pub fn open_daily_note_for_date(
         .detach();
 }
 
+/// Appends `text` as a timestamped bullet point to the daily note for `date`, creating
+/// the file first if it doesn't exist. Returns the path so callers can open it.
+fn append_quick_note_to_date(
+    date: NaiveDate,
+    text: String,
+    cx: &mut App,
+) -> Option<gpui::Task<anyhow::Result<std::path::PathBuf>>> {
+    let active_vault = cx.try_global::<ActiveVault>().and_then(|av| av.0.clone())?;
+
+    let vault = active_vault.read(cx);
+    let daily_dir = vault.config.daily_notes_dir.clone();
+    let format_str = vault.config.daily_notes_format.clone();
+
+    let chrono_format = convert_obsidian_format_to_chrono(&format_str);
+    let date_str = date.format(&chrono_format).to_string();
+    let entry_path = daily_dir.join(format!("{}.md", date_str));
+
+    let task = cx.background_spawn(async move {
+        // Ensure the file exists with at least a heading.
+        if !entry_path.exists() {
+            if let Some(parent) = entry_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&entry_path, format!("# {}\n\n", date_str))?;
+        }
+
+        // Append a timestamped bullet to the note.
+        let now_time = Local::now().format("%H:%M").to_string();
+        let bullet = format!("\n- {} — {}", now_time, text.trim());
+        let mut content = std::fs::read_to_string(&entry_path)?;
+        content.push_str(&bullet);
+        std::fs::write(&entry_path, content)?;
+
+        anyhow::Ok(entry_path)
+    });
+
+    Some(task)
+}
+
 pub struct DailyNotesPanel {
     workspace: WeakEntity<Workspace>,
     focus_handle: FocusHandle,
@@ -128,6 +172,8 @@ pub struct DailyNotesPanel {
     current_year: i32,
     selected_date: NaiveDate,
     notes_with_daily_dates: HashSet<NaiveDate>,
+    /// Inline quick-note input embedded at the bottom of the panel.
+    quick_note_input: Entity<InputField>,
     position: DockPosition,
     active: bool,
     zoomed: bool,
@@ -139,7 +185,7 @@ pub struct DailyNotesPanel {
 impl EventEmitter<PanelEvent> for DailyNotesPanel {}
 
 impl DailyNotesPanel {
-    pub fn new(workspace: Entity<Workspace>, cx: &mut Context<Self>) -> Self {
+    pub fn new(workspace: Entity<Workspace>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus_handle = cx.focus_handle();
         let today = Local::now().naive_local().date();
         // Prefer per-silo config when available; fall back to the global feature flags.
@@ -148,6 +194,10 @@ impl DailyNotesPanel {
             .map(|active| active.0.features.panels_default_flexible)
             .unwrap_or(true);
 
+        // Build the quick-note InputField upfront so it lives in the entity graph.
+        let quick_note_input =
+            cx.new(|cx| InputField::new(window, cx, "Quick note for today…").start_icon(IconName::Pencil));
+
         let mut this = Self {
             workspace: workspace.downgrade(),
             focus_handle,
@@ -155,7 +205,9 @@ impl DailyNotesPanel {
             current_year: today.year(),
             selected_date: today,
             notes_with_daily_dates: HashSet::new(),
-            position: DockPosition::Right,
+            quick_note_input,
+            // Fix: the panel targets the left dock so the initial position must match.
+            position: DockPosition::Left,
             active: false,
             zoomed: false,
             flexible: default_flexible,
@@ -187,9 +239,9 @@ impl DailyNotesPanel {
         workspace: WeakEntity<Workspace>,
         mut cx: AsyncWindowContext,
     ) -> anyhow::Result<Entity<Self>> {
-        workspace.update_in(&mut cx, |_, _window, cx| {
+        workspace.update_in(&mut cx, |_, window, cx| {
             let workspace_view = cx.entity();
-            cx.new(|cx| Self::new(workspace_view, cx))
+            cx.new(|cx| Self::new(workspace_view, window, cx))
         })
     }
 
@@ -258,6 +310,76 @@ impl DailyNotesPanel {
         self.selected_date = date;
         cx.notify();
         open_daily_note_for_date(date, self.workspace.clone(), window, cx);
+    }
+
+    /// Reads the quick-note input, appends the text as a timestamped bullet to the
+    /// selected day's note file, clears the input, and refreshes the note index.
+    fn commit_quick_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let text = self.quick_note_input.read(cx).text(cx);
+        let trimmed = text.trim().to_owned();
+        if trimmed.is_empty() {
+            return;
+        }
+
+        let date = self.selected_date;
+        let workspace = self.workspace.clone();
+
+        // Clone the Arc<dyn ErasedEditor> so the immutable cx borrow from read() ends
+        // before clear() takes a mutable borrow.
+        let editor = self.quick_note_input.read(cx).editor().clone();
+        editor.clear(window, cx);
+
+        let Some(append_task) = append_quick_note_to_date(date, trimmed, cx) else {
+            return;
+        };
+
+        // Optimistically mark the date as having a note so the dot appears right away.
+        self.notes_with_daily_dates.insert(date);
+        cx.notify();
+
+        // window.spawn gives AsyncWindowContext, which supports update_in (VisualContext).
+        // The background file-write runs first; then we refresh the editor view.
+        let panel = cx.weak_entity();
+        window
+            .spawn(cx, async move |cx| {
+                match append_task.await {
+                    Ok(path) => {
+                        // Ensure the dot indicator is persisted (in case of a cold start).
+                        panel
+                            .update(cx, |this, cx| {
+                                this.notes_with_daily_dates.insert(date);
+                                cx.notify();
+                            })
+                            .ok();
+
+                        if let Some(workspace) = workspace.upgrade() {
+                            if let Err(err) = workspace.update_in(cx, |workspace, window, cx| {
+                                workspace
+                                    .open_paths(
+                                        vec![path],
+                                        workspace::OpenOptions {
+                                            visible: Some(workspace::OpenVisible::All),
+                                            ..Default::default()
+                                        },
+                                        None,
+                                        window,
+                                        cx,
+                                    )
+                                    .detach();
+                            }) {
+                                log::error!(
+                                    "Oxidian: failed to open daily note after quick append: {err}"
+                                );
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        log::error!("Oxidian: failed to append quick note: {err}");
+                    }
+                }
+                anyhow::Ok(())
+            })
+            .detach();
     }
 }
 
@@ -341,6 +463,7 @@ impl Render for DailyNotesPanel {
         };
 
         let month_title = format!("{} {}", month_name, self.current_year);
+        let selected_date = self.selected_date;
 
         let calendar_header = div()
             .flex()
@@ -397,16 +520,23 @@ impl Render for DailyNotesPanel {
 
         let cells = calendar_cells(self.current_year, self.current_month);
 
-        let weekdays_header = div().grid_cols(7).gap_1().px_3().py_1().children(
-            ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
-                .iter()
-                .map(|day| {
-                    div()
-                        .flex()
-                        .justify_center()
-                        .child(Label::new(*day).size(LabelSize::XSmall).color(Color::Muted))
-                }),
-        );
+        // Fix: `.grid()` must precede `.grid_cols()` so Taffy uses CSS Grid layout.
+        let weekdays_header = div()
+            .grid()
+            .grid_cols(7)
+            .gap_1()
+            .px_3()
+            .py_1()
+            .children(
+                ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+                    .iter()
+                    .map(|day| {
+                        div()
+                            .flex()
+                            .justify_center()
+                            .child(Label::new(*day).size(LabelSize::XSmall).color(Color::Muted))
+                    }),
+            );
 
         let today = Local::now().naive_local().date();
 
@@ -466,13 +596,66 @@ impl Render for DailyNotesPanel {
                     })
             });
 
+        // Fix: `.grid()` must precede `.grid_cols()`.
         let grid = div()
             .id("calendar-grid")
+            .grid()
             .grid_cols(7)
             .gap_1()
             .px_3()
             .py_1()
             .children(cells_views);
+
+        // ── Quick-note section ─────────────────────────────────────────────────
+        // Shows a label indicating the target date and an input field + submit
+        // button. Committing appends a timestamped bullet to the day's note.
+        let selected_label = {
+            let today_local = Local::now().naive_local().date();
+            if selected_date == today_local {
+                "Today".to_owned()
+            } else {
+                selected_date.format("%b %d").to_string()
+            }
+        };
+
+        let quick_note_section = div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .px_3()
+            .pt_2()
+            .pb_3()
+            .border_t_1()
+            .border_color(cx.theme().colors().border)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .child(Icon::new(IconName::Pencil).size(IconSize::XSmall).color(Color::Muted))
+                    .child(
+                        Label::new(format!("Quick note — {}", selected_label))
+                            .size(LabelSize::XSmall)
+                            .color(Color::Muted),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    // The InputField entity renders inline.
+                    .child(self.quick_note_input.clone())
+                    .child(
+                        IconButton::new("quick-note-submit", IconName::Check)
+                            .icon_size(IconSize::Small)
+                            .icon_color(Color::Accent)
+                            .tooltip(Tooltip::text("Append to note (Enter)"))
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.commit_quick_note(window, cx);
+                            })),
+                    ),
+            );
 
         div()
             .id("daily-notes-panel-root")
@@ -485,6 +668,7 @@ impl Render for DailyNotesPanel {
             .child(navigation_header)
             .child(weekdays_header)
             .child(grid)
+            .child(quick_note_section)
     }
 }
 
